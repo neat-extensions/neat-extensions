@@ -52,20 +52,22 @@ const ALLOWED_URL_HOSTS = ["www.youtube.com", "chromewebstore.google.com", "rule
 
 /**
  * @param {string} src     shipped JavaScript
- * @param {string} rulesUrl the one remote URL the bundle may mention
+ * @param {string|string[]} rulesUrls the rules URL(s) the bundle may mention (the one in use + the site default it overrides)
  * @returns {string[]}
  */
-export function scanSource(src, rulesUrl) {
+export function scanSource(src, rulesUrls) {
   const errors = [];
   for (const [re, what] of FORBIDDEN_SOURCE) {
     const m = re.exec(src);
     if (m) errors.push(`contains ${what}: ${m[0]}`);
   }
   const allowed = new Set(ALLOWED_URL_HOSTS);
-  try {
-    allowed.add(new URL(rulesUrl).hostname.toLowerCase());
-  } catch {
-    /* validated elsewhere */
+  for (const u of [rulesUrls].flat()) {
+    try {
+      allowed.add(new URL(u).hostname.toLowerCase());
+    } catch {
+      /* validated elsewhere */
+    }
   }
   for (const m of src.matchAll(/https?:\/\/([a-z0-9._-]+)/gi)) {
     const host = m[1].toLowerCase();

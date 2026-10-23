@@ -161,14 +161,28 @@ test.describe("self-check", () => {
 });
 
 test.describe("every rule on", () => {
-  test("watch page: comments, sidebar, end screen hidden; autoplay turned off", async ({ page, worker }) => {
-    coversRules("watch-comments", "watch-sidebar", "watch-endscreen", "autoplay-off");
-    await setSettings(worker, { toggles: { ...allRulesOn(), "autoplay-off": true } });
+  test("watch page: comments and sidebar hidden", async ({ page, worker }) => {
+    coversRules("watch-comments", "watch-sidebar");
+    await setSettings(worker, { toggles: allRulesOn() });
     await openYouTube(page, URLS.watch, "watch");
     await shot(page, "watch-all-on");
     expect(await countVisible(page, "ytd-watch-flexy #related, ytd-watch-next-secondary-results-renderer")).toBe(0);
     expect(await countVisible(page, "ytd-comments#comments")).toBe(0);
     expect(await page.locator("ytd-comments#comments").evaluate((e) => getComputedStyle(e).display)).toBe("none");
+  });
+
+  test("watch page player: end screen hidden; autoplay turned off", async ({ page, worker }) => {
+    coversRules("watch-endscreen", "autoplay-off");
+    await setSettings(worker, { toggles: { ...allRulesOn(), "autoplay-off": true } });
+    await openYouTube(page, URLS.watch, "watch");
+    // From datacenter IPs (CI runners) YouTube may replace the player with a sign-in bot check;
+    // there is no player to test then. Reported as skipped, never as a broken rule.
+    const botWall = await page
+      .getByText(/confirm you.?re not a bot/i)
+      .first()
+      .isVisible()
+      .catch(() => false);
+    test.skip(botWall, "YouTube showed its 'confirm you're not a bot' wall instead of the player");
     expect(await page.locator(".html5-video-player .html5-endscreen").first().evaluate((e) => getComputedStyle(e).display)).toBe("none");
     await expect(page.locator(".ytp-autonav-toggle-button").first()).toHaveAttribute("aria-checked", "false", { timeout: 15_000 });
   });

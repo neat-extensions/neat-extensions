@@ -156,7 +156,8 @@ if (sizeErrors.length) fail(sizeErrors[0]);
 
 // No remote code, dynamic code, HTML injection or unexpected hosts in shipped JavaScript.
 for (const f of files.filter((x) => x.endsWith(".js"))) {
-  const problems = scanSource(await readFile(f, "utf8"), rulesUrl);
+  // site.config.js is bundled whole, so its default rulesUrl is present even when RULES_URL overrides it.
+  const problems = scanSource(await readFile(f, "utf8"), [rulesUrl, site.rulesUrl]);
   if (problems.length) fail(`${path.relative(ROOT, f)} ${problems.join("; ")}`);
 }
 console.log(`  permissions: ${JSON.stringify(built.permissions)}  host_permissions: ${JSON.stringify(built.host_permissions)}`);

@@ -54,4 +54,10 @@ test.describe("release policy", () => {
       expect(scanSource(bad, url).length, bad).toBeGreaterThan(0);
     }
   });
+
+  test("source scan allows the site's default rules host alongside an override, and nothing else", () => {
+    const src = 'a="https://rules.example.com/r.json"; b="https://local.test:8443/r.json"';
+    expect(scanSource(src, ["https://local.test:8443/r.json", "https://rules.example.com/r.json"])).toEqual([]);
+    expect(scanSource(src, ["https://local.test:8443/r.json"]).length).toBe(1);
+  });
 });

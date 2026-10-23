@@ -72,7 +72,8 @@ test("options page: toggles, allow list, shortcut, diagnostics, about", async ({
   await expect(opts.locator("#about .trust li")).toHaveText(["No account.", "Nothing leaves your browser.", "Open source."]);
   await expect(opts.locator("#more li")).not.toHaveCount(0);
   await expect(opts.locator("#d-rules")).toContainText(RULES.version);
-  await expect(opts.locator("#d-status")).toContainText("not-configured");
+  // The e2e build ships the live rules URL + key: on install it fetched and verified them.
+  await expect(opts.locator("#d-status")).toContainText(/up-to-date \(|updated to /);
 
   await opts.locator("#allow-input").fill("https://www.youtube.com/@LinusTechTips/videos");
   await opts.getByRole("button", { name: "Add" }).click();

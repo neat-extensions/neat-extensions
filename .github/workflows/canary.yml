@@ -129,4 +129,11 @@ jobs:
               await github.rest.issues.createComment({ ...context.repo, issue_number: existing.number, body });
             } else {
               await github.rest.issues.create({ ...context.repo, title, body, labels: ['canary'] });
+              // Two runs failing at once (push + schedule/manual) can both create one: keep the oldest.
+              const again = await github.rest.issues.listForRepo({ ...context.repo, state: 'open', labels: 'canary', per_page: 100 });
+              const mine = again.data.filter(i => i.title.startsWith(`CANARY BROKEN: ${s.site}`)).sort((a, b) => a.number - b.number);
+              for (const dup of mine.slice(1)) {
+                await github.rest.issues.createComment({ ...context.repo, issue_number: dup.number, body: `Duplicate of #${mine[0].number}.` });
+                await github.rest.issues.update({ ...context.repo, issue_number: dup.number, state: 'closed', state_reason: 'not_planned' });
+              }
             }
