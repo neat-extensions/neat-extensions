@@ -12,14 +12,16 @@ import { findTargets } from "./locators.js";
  */
 export function isVisible(el, depth = 0) {
   if (!el.isConnected) return false;
+  // checkVisibility() is false for display:contents (no box of its own), so look at children first.
+  if (el.ownerDocument.defaultView.getComputedStyle(el).display === "contents") {
+    if (depth >= 3) return false;
+    for (const child of el.children) if (isVisible(child, depth + 1)) return true;
+    return false;
+  }
   if (typeof el.checkVisibility === "function" && !el.checkVisibility({ opacityProperty: true, visibilityProperty: true }))
     return false;
   const r = el.getBoundingClientRect();
-  if (r.width >= 1 && r.height >= 1) return true;
-  if (depth < 3 && el.ownerDocument.defaultView.getComputedStyle(el).display === "contents") {
-    for (const child of el.children) if (isVisible(child, depth + 1)) return true;
-  }
-  return false;
+  return r.width >= 1 && r.height >= 1;
 }
 
 /**

@@ -4,3 +4,6 @@ test-results/
 playwright-report/
 .pw-profile*/
 *.log
+.scratch/
+dist-test*/
+.browsers/

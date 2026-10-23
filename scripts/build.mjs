@@ -11,9 +11,7 @@ import { zipSync } from "fflate";
 import { BRAND, BRAND_SLUG } from "../brand.config.js";
 import { validateRules, validateRulesUrl } from "../packages/engine/src/schema.js";
 import { TRUST_LINES } from "../packages/engine/src/trust.js";
-
-export const ALLOWED_PERMISSIONS = ["storage", "alarms"];
-export const MAX_BUNDLE_BYTES = 300 * 1024;
+import { ALLOWED_PERMISSIONS, MAX_BUNDLE_BYTES, checkManifest, scanSource, checkBundleSize } from "./policy.mjs";
 const ROOT = path.resolve(import.meta.dirname, "..");
 
 const args = process.argv.slice(2);
@@ -127,14 +125,8 @@ await cp(path.join(appDir, "icons"), path.join(outDir, "icons"), { recursive: tr
 // ---------------------------------------------------------------- policy checks
 step("Policy checks");
 const built = JSON.parse(await readFile(path.join(outDir, "manifest.json"), "utf8"));
-const extraPerms = (built.permissions || []).filter((p) => !ALLOWED_PERMISSIONS.includes(p));
-if (extraPerms.length) fail(`permissions outside the allowed set: ${extraPerms.join(", ")}`);
-if ((built.optional_permissions || []).length) fail("optional_permissions are not allowed");
-const badHosts = (built.host_permissions || []).filter((h) => h !== "https://www.youtube.com/*");
-if (badHosts.length) fail(`host permissions outside the allowed set: ${badHosts.join(", ")}`);
-for (const cs of built.content_scripts) {
-  if (cs.matches.some((m) => m !== "https://www.youtube.com/*")) fail("content script matches outside the allowed host");
-}
+const manifestErrors = checkManifest(built);
+if (manifestErrors.length) fail(manifestErrors.join("; "));
 
 async function walk(dir) {
   const out = [];
@@ -149,25 +141,13 @@ const files = await walk(outDir);
 let total = 0;
 for (const f of files) total += (await stat(f)).size;
 console.log(`  bundle size: ${(total / 1024).toFixed(1)} KB across ${files.length} files (limit ${MAX_BUNDLE_BYTES / 1024} KB)`);
-if (total > MAX_BUNDLE_BYTES) fail(`bundle is ${total} bytes, over ${MAX_BUNDLE_BYTES}`);
+const sizeErrors = checkBundleSize(total);
+if (sizeErrors.length) fail(sizeErrors[0]);
 
-// No remote code / dynamic code / HTML injection in shipped JavaScript.
-const FORBIDDEN = [
-  [/\beval\s*\(/, "eval("],
-  [/\bnew\s+Function\s*\(/, "new Function("],
-  [/\.innerHTML\s*=|\.outerHTML\s*=|insertAdjacentHTML|document\.write\s*\(/, "HTML injection sink"],
-  [/setTimeout\s*\(\s*["'`]|setInterval\s*\(/, "string timer / setInterval"],
-  [/\bimport\s*\(\s*["'`]?https?:/, "remote import"],
-  [/https?:\/\/(?!www\.youtube\.com|chromewebstore\.google\.com|RULES_HOST)[a-z0-9.-]+\.[a-z]{2,}/i, "unexpected URL"],
-];
+// No remote code, dynamic code, HTML injection or unexpected hosts in shipped JavaScript.
 for (const f of files.filter((x) => x.endsWith(".js"))) {
-  const src = await readFile(f, "utf8");
-  for (const [re, what] of FORBIDDEN) {
-    const m = re.exec(src);
-    if (m && !(what === "unexpected URL" && rulesUrl.includes(m[0].replace(/^https?:\/\//, "")))) {
-      fail(`${path.relative(ROOT, f)} contains ${what}: ${m[0]}`);
-    }
-  }
+  const problems = scanSource(await readFile(f, "utf8"), rulesUrl);
+  if (problems.length) fail(`${path.relative(ROOT, f)} ${problems.join("; ")}`);
 }
 console.log(`  permissions: ${JSON.stringify(built.permissions)}  host_permissions: ${JSON.stringify(built.host_permissions)}`);
 

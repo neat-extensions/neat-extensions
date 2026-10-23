@@ -59,6 +59,16 @@
       ]
     },
     {
+      "id": "shorts-watch",
+      "label": "Shorts in watch-page suggestions",
+      "default": true,
+      "group": "Shorts",
+      "locators": [
+        { "type": "css", "selector": "ytd-watch-flexy ytd-reel-shelf-renderer, ytd-watch-flexy grid-shelf-view-model:has(ytm-shorts-lockup-view-model, ytm-shorts-lockup-view-model-v2), ytd-watch-next-secondary-results-renderer yt-lockup-view-model:has(a[href^=\"/shorts/\"]), ytd-watch-next-secondary-results-renderer ytd-compact-video-renderer:has(a[href^=\"/shorts/\"])" },
+        { "type": "structural", "anchor": "ytd-watch-flexy a[href^=\"/shorts/\"]", "container": "ytd-reel-shelf-renderer, grid-shelf-view-model, yt-lockup-view-model, ytd-compact-video-renderer" }
+      ]
+    },
+    {
       "id": "shorts-notifications",
       "label": "Shorts in notifications",
       "default": true,
