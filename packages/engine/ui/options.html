@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{PRODUCT}} — Options</title>
+  <link rel="stylesheet" href="ui.css">
+  <script src="options.js" defer></script>
+</head>
+<body class="options">
+<main class="wrap">
+  <header class="header">
+    <img src="icons/icon-48.png" alt="" class="logo-lg">
+    <h1 class="h-lg">{{PRODUCT}}</h1>
+    <label class="muted small" for="master">On</label>
+    <input type="checkbox" role="switch" class="switch big" id="master" aria-label="Turn {{BRAND}} on or off">
+  </header>
+
+  <section id="rules" aria-labelledby="rules-h">
+    <h2 id="rules-h">What to hide</h2>
+    <div id="groups-wrap"><div id="groups"></div></div>
+  </section>
+
+  <section id="allow" aria-labelledby="allow-title">
+    <h2 id="allow-title"></h2>
+    <p id="allow-help" class="muted"></p>
+    <form id="allow-form" class="field">
+      <input type="text" id="allow-input" aria-labelledby="allow-title" autocomplete="off" spellcheck="false">
+      <button class="btn" type="submit">Add</button>
+    </form>
+    <div id="allow-error" class="error small" role="alert"></div>
+    <div id="allow-list" class="chips"></div>
+  </section>
+
+  <section id="keys" aria-labelledby="keys-h">
+    <h2 id="keys-h">Keyboard shortcut</h2>
+    <p>Turn {{BRAND}} on or off: <kbd id="shortcut"></kbd></p>
+    <button class="btn" id="change-shortcut">Change shortcut</button>
+  </section>
+
+  <section id="diagnostics" aria-labelledby="diag-h">
+    <h2 id="diag-h">Diagnostics</h2>
+    <p class="muted small">{{BRAND}} checks itself after hiding. If YouTube changes and a rule stops working, it is listed here. Nothing is sent anywhere — copy it if you want to report a problem.</p>
+    <dl>
+      <dt>Extension</dt><dd id="d-version"></dd>
+      <dt>Engine</dt><dd id="d-engine"></dd>
+      <dt>Rules</dt><dd id="d-rules"></dd>
+      <dt>Rules update</dt><dd id="d-status"></dd>
+      <dt>Last checked</dt><dd id="d-checked"></dd>
+    </dl>
+    <p id="d-count"></p>
+    <pre id="d-log"></pre>
+    <div class="field">
+      <button class="btn" id="d-copy">Copy</button>
+      <button class="btn" id="d-refresh">Check for rule updates</button>
+      <button class="btn" id="d-clear">Clear</button>
+      <span id="d-copied" class="muted small center" aria-live="polite"></span>
+    </div>
+  </section>
+
+  <section id="about" aria-labelledby="about-h">
+    <h2 id="about-h">About</h2>
+    <ul class="trust">{{TRUST_ITEMS}}</ul>
+    <p class="muted small">{{PRODUCT}} hides parts of YouTube with a style sheet in your own browser. It has no account, no analytics and no tracking. The only network request it makes is to download updated hiding rules (a small JSON file) — no data about you is sent.</p>
+    <h3 class="sub">More from {{BRAND}}</h3>
+    <ul id="more" class="more"></ul>
+  </section>
+</main>
+</body>
+</html>

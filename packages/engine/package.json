@@ -1,0 +1,7 @@
+{
+  "name": "@factory/engine",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Rules-driven element-hiding engine for MV3 Chrome extensions."
+}

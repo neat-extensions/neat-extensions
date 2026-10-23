@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{PRODUCT}}</title>
+  <link rel="stylesheet" href="ui.css">
+  <script src="popup.js" defer></script>
+</head>
+<body class="popup">
+  <header class="header">
+    <img src="icons/icon-32.png" alt="">
+    <h1>{{PRODUCT}}</h1>
+    <span id="status" class="muted small" aria-live="polite"></span>
+    <input type="checkbox" role="switch" class="switch big" id="master" aria-label="Turn {{BRAND}} on or off" title="{{SHORTCUT_HINT}}">
+  </header>
+  <div id="review-slot"></div>
+  <div id="groups"></div>
+  <footer class="footer">
+    <button class="linklike small" id="open-options">Options</button>
+    <span class="muted small">Changes apply instantly.</span>
+  </footer>
+</body>
+</html>
