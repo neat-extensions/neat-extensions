@@ -23,7 +23,8 @@ const fail = (m) => {
   process.exit(1);
 };
 const git = (...a) => {
-  const r = spawnSync("git", a, { cwd: ROOT, encoding: "utf8" });
+  // Never wait on a credential prompt: fail fast (run `gh auth setup-git` once if push is refused).
+  const r = spawnSync("git", a, { cwd: ROOT, encoding: "utf8", env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GCM_INTERACTIVE: "never" } });
   if (r.status !== 0) fail(`git ${a.join(" ")}: ${r.stderr.trim()}`);
   return r.stdout.trim();
 };
@@ -55,7 +56,10 @@ try {
   fail(`no signing key at ${KEY_FILE} (restore it from your backup, or set RULES_PRIVATE_KEY_FILE)`);
 }
 const bytes = Buffer.from(text, "utf8");
-const sig = await signBytes(privateJwk, bytes);
+// ECDSA signatures are randomised: keep the published one while it still verifies, so an unchanged file is a no-op.
+const prevSig = prev === text ? await readFile(`${outFile}.sig`, "utf8").catch(() => null) : null;
+const reuse = prevSig !== null && (await verifyRules(site.rulesPublicKey, bytes, prevSig));
+const sig = reuse ? prevSig : await signBytes(privateJwk, bytes);
 if (!(await verifyRules(site.rulesPublicKey, bytes, sig))) fail("signature does not verify against site.config.js rulesPublicKey — wrong private key?");
 
 await mkdir(outDir, { recursive: true });

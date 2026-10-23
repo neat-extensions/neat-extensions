@@ -165,7 +165,8 @@ The rules host is GitHub Pages of this repository, published from the
 (`.secrets/rules-private.jwk`, or `RULES_PRIVATE_KEY_FILE`), checks the
 signature against `site.config.js → rulesPublicKey`, writes
 `docs/youtube/rules.json` + `.sig` and the landing/privacy pages from
-`store/site/`, commits and pushes. It refuses changed rules with an unchanged
+`store/site/`, commits and pushes (git must be able to push without a prompt:
+run `gh auth setup-git` once). An unchanged file is a no-op. It refuses changed rules with an unchanged
 `version`. Pages goes live within about a minute; `npm run rules:check` (with
 `RULES_URL` and `RULES_PUBLIC_KEY` set) fetches and verifies the live file,
 and the canary does the same daily. `docs/*/rules.json` is `-text` in
