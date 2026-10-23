@@ -5,11 +5,13 @@ import { test as base, chromium, expect } from "@playwright/test";
 import path from "node:path";
 import { readFileSync, mkdirSync } from "node:fs";
 import { BRAND_SLUG } from "../../brand.config.js";
+import site from "../../apps/youtube/site.config.js";
 
 export const MARK = `data-${BRAND_SLUG}-hide`;
 export const STYLE = `style[data-${BRAND_SLUG}]`;
-// Set by the canary when a real rules host exists; the extension may request exactly these.
-export const ALLOWED_EXT_REQUESTS = process.env.E2E_RULES_URL ? [process.env.E2E_RULES_URL, `${process.env.E2E_RULES_URL}.sig`] : [];
+// The rules URL the e2e build uses (shipped default, or E2E_RULES_URL); the extension may request exactly these.
+const E2E_RULES_URL = process.env.E2E_RULES_URL || site.rulesUrl;
+export const ALLOWED_EXT_REQUESTS = [E2E_RULES_URL, `${E2E_RULES_URL}.sig`];
 
 export const ROOT = path.resolve(import.meta.dirname, "..", "..");
 export const EXT_DIR = path.join(ROOT, "dist-test", "youtube");

@@ -13,7 +13,9 @@
     "build": "node scripts/build.mjs",
     "release": "node scripts/build.mjs --release --e2e",
     "rules:key": "node scripts/rules-key.mjs",
-    "store": "node scripts/store.mjs"
+    "store": "node scripts/store.mjs",
+    "rules:publish": "node scripts/publish-rules.mjs",
+    "rules:check": "node scripts/check-remote-rules.mjs"
   },
   "engines": {
     "node": ">=20"

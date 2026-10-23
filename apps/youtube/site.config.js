@@ -1,6 +1,6 @@
 // Site config for "Neat for YouTube". A product = engine + rules.json + this file.
 // Everything here is plain data or small pure helpers; no remote input reaches code.
-import { BRAND, BRAND_SLUG } from "../../brand.config.js";
+import { BRAND } from "../../brand.config.js";
 
 // Handles: letters/marks/digits in any script plus _ . - · (YouTube's allowed set), 3–100 chars.
 const HANDLE_RE = /^@[\p{L}\p{M}\p{N}_.\-·]{3,100}$/u;
@@ -69,11 +69,11 @@ export default {
   version: "1.0.0",
   matches: ["https://www.youtube.com/*"],
   hostPermissions: ["https://www.youtube.com/*"],
-  // Override at build time with RULES_URL=https://… . The placeholder host is never fetched.
-  rulesUrl: `https://RULES_HOST/${BRAND_SLUG}-youtube/rules.json`,
+  // GitHub Pages of the public repo (docs/youtube/). Override at build time with RULES_URL=https://… .
+  rulesUrl: "https://neat-extensions.github.io/neat-extensions/youtube/rules.json",
   // Public half of the rules-signing key (scripts/rules-key.mjs). Override with RULES_PUBLIC_KEY.
-  // While null, remote rules are disabled entirely.
-  rulesPublicKey: null,
+  // While null, remote rules are disabled entirely. Private half: .secrets/ (never committed).
+  rulesPublicKey: { kty: "EC", crv: "P-256", x: "i4iJ16P-SZ_jd8JKoGZKHxAJThFlHYBtGe5LMofjzD8", y: "GZDTYeioOqm34v-qNeQrk7QOoBIR18ApuFOpbvC9Oaw" },
   masterCommand: { id: "toggle-master", key: "Alt+Shift+Y" },
   navigationEvents: ["yt-navigate-finish", "yt-page-data-updated"],
   groups: ["Shorts", "Watch page", "Home"],

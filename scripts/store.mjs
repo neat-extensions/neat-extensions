@@ -19,7 +19,10 @@ const listing = await import(new URL(`file:///${path.join(appDir, "listing.js").
 const OUT = path.join(ROOT, "store");
 const SHOTS = path.join(OUT, "screenshots");
 const SITE_OUT = path.join(OUT, "site");
-const INSTALL_URL = "https://chromewebstore.google.com/detail/EXTENSION_ID"; // placeholder until published
+// Owner step after the first store upload: set the 32-letter item id. Until then the
+// landing page shows a disabled "pending" button instead of a dead store link.
+const EXTENSION_ID = null;
+const INSTALL_URL = EXTENSION_ID ? `https://chromewebstore.google.com/detail/${EXTENSION_ID}` : null;
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 await mkdir(SHOTS, { recursive: true });
@@ -52,6 +55,9 @@ await writeFile(
       promoTile: "promo-small-440x280.png",
       marquee: "marquee-1400x560.png",
       privacyPolicy: "privacy.html",
+      privacyPolicyUrl: listing.privacyPolicyUrl,
+      homepageUrl: listing.siteUrl,
+      sourceUrl: listing.sourceUrl,
     },
     null,
     2,
@@ -67,6 +73,7 @@ main{max-width:860px;margin:0 auto;padding:40px 20px 80px}a{color:var(--accent)}
 h1{font-size:clamp(28px,5vw,44px);line-height:1.15;margin:.2em 0 .4em}h2{margin-top:2em}
 .brand{display:flex;align-items:center;gap:10px;font-weight:700}.brand img{width:32px;height:32px}
 .btn{display:inline-block;background:var(--accent);color:var(--accent-ink);padding:12px 22px;border-radius:10px;text-decoration:none;font-weight:650}
+.btn[aria-disabled="true"]{background:var(--surface);color:var(--muted);border:1px dashed var(--border);cursor:not-allowed}
 .muted{color:var(--muted)}.trust{list-style:none;padding:0}.trust li{padding:4px 0 4px 26px;position:relative}.trust li:before{content:"✓";position:absolute;left:4px;color:var(--accent);font-weight:700}
 .ba{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:24px 0}.ba figure{margin:0}.ba img{width:100%;border:1px solid var(--border);border-radius:10px;display:block}
 .ba figcaption{font-weight:650;margin-bottom:6px}@media (max-width:640px){.ba{grid-template-columns:1fr}}
@@ -98,7 +105,7 @@ const privacy = `<!doctype html>
 </main></body></html>
 `;
 await writeFile(path.join(OUT, "privacy.html"), privacy);
-await writeFile(path.join(SITE_OUT, "privacy.html"), privacy.replace('src="site/icon-128.png"', 'src="icon-128.png"'));
+await writeFile(path.join(SITE_OUT, "privacy.html"), privacy.replace('src="site/icon-128.png"', 'src="icon-128.png"').replace("</main>", '<p><a href="./">← Home</a></p>\n</main>'));
 
 // ---------------------------------------------------------------- landing page
 const landing = `<!doctype html>
@@ -111,7 +118,9 @@ const landing = `<!doctype html>
 <p class="brand"><img src="icon-128.png" alt="">${esc(BRAND)}</p>
 <h1>How to hide YouTube Shorts</h1>
 <p>Install <strong>${esc(site.productName)}</strong>, a free Chrome extension. ${esc(listing.firstLine)} No settings to learn: Shorts disappear from Home, search, subscriptions, channel pages and the sidebar, and any Shorts link opens as a normal video.</p>
-<p><a class="btn" href="${INSTALL_URL}" id="install">Add to Chrome — it's free</a></p>
+${INSTALL_URL
+  ? `<p><a class="btn" href="${INSTALL_URL}" id="install">Add to Chrome — it's free</a></p>`
+  : `<p><span class="btn" id="install" role="link" aria-disabled="true" data-pending="store-id">Add to Chrome — coming soon</span><br><span class="muted">Pending Chrome Web Store review. The install link appears here once the extension is published.</span></p>`}
 <ul class="trust">${TRUST_LINES.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
 ${listing.sourceUrl ? `<p><a href="${esc(listing.sourceUrl)}">Source code</a></p>` : ""}
 <div class="ba">

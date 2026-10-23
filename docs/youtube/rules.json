@@ -1,0 +1,120 @@
+{
+  "version": "1.0.0",
+  "site": "youtube",
+  "minEngineVersion": "1.0.0",
+  "rules": [
+    {
+      "id": "shorts-home",
+      "label": "Shorts shelf on Home",
+      "default": true,
+      "group": "Shorts",
+      "locators": [
+        { "type": "css", "selector": "ytd-browse[page-subtype=\"home\"] ytd-rich-section-renderer:has(ytm-shorts-lockup-view-model, ytm-shorts-lockup-view-model-v2, ytd-rich-shelf-renderer[is-shorts], ytd-reel-shelf-renderer), ytd-browse[page-subtype=\"home\"] ytd-rich-item-renderer:has(a[href^=\"/shorts/\"])" },
+        { "type": "text", "container": "ytd-browse[page-subtype=\"home\"] ytd-rich-section-renderer", "label": "#title, yt-section-header-view-model span", "match": "Shorts" },
+        { "type": "structural", "anchor": "ytd-browse[page-subtype=\"home\"] a[href^=\"/shorts/\"]", "container": "ytd-rich-section-renderer, ytd-rich-item-renderer" }
+      ]
+    },
+    {
+      "id": "shorts-subscriptions",
+      "label": "Shorts in Subscriptions",
+      "default": true,
+      "group": "Shorts",
+      "locators": [
+        { "type": "css", "selector": "ytd-browse[page-subtype=\"subscriptions\"] ytd-rich-section-renderer:has(ytm-shorts-lockup-view-model, ytm-shorts-lockup-view-model-v2, ytd-rich-shelf-renderer[is-shorts], ytd-reel-shelf-renderer), ytd-browse[page-subtype=\"subscriptions\"] ytd-rich-item-renderer:has(a[href^=\"/shorts/\"]), ytd-browse[page-subtype=\"subscriptions\"] ytd-grid-video-renderer:has(a[href^=\"/shorts/\"])" },
+        { "type": "text", "container": "ytd-browse[page-subtype=\"subscriptions\"] ytd-rich-section-renderer", "label": "#title, yt-section-header-view-model span", "match": "Shorts" },
+        { "type": "structural", "anchor": "ytd-browse[page-subtype=\"subscriptions\"] a[href^=\"/shorts/\"]", "container": "ytd-rich-section-renderer, ytd-rich-item-renderer, ytd-grid-video-renderer" }
+      ]
+    },
+    {
+      "id": "shorts-search",
+      "label": "Shorts in search results",
+      "default": true,
+      "group": "Shorts",
+      "locators": [
+        { "type": "css", "selector": "ytd-search grid-shelf-view-model:has(ytm-shorts-lockup-view-model, ytm-shorts-lockup-view-model-v2), ytd-search ytd-reel-shelf-renderer, ytd-search ytd-video-renderer:has(a[href^=\"/shorts/\"])" },
+        { "type": "text", "container": "ytd-search grid-shelf-view-model, ytd-search ytd-reel-shelf-renderer", "label": "yt-section-header-view-model span, #title", "match": "Shorts" },
+        { "type": "structural", "anchor": "ytd-search a[href^=\"/shorts/\"]", "container": "grid-shelf-view-model, ytd-reel-shelf-renderer, ytd-video-renderer" }
+      ]
+    },
+    {
+      "id": "shorts-channel",
+      "label": "Shorts tab and Shorts on channel pages",
+      "default": true,
+      "group": "Shorts",
+      "locators": [
+        { "type": "css", "selector": "yt-tab-shape[tab-title=\"Shorts\"], ytd-browse[page-subtype=\"channels\"] ytd-reel-shelf-renderer, ytd-browse[page-subtype=\"channels\"] ytd-rich-shelf-renderer[is-shorts], ytd-browse[page-subtype=\"channels\"] grid-shelf-view-model:has(ytm-shorts-lockup-view-model, ytm-shorts-lockup-view-model-v2)" },
+        { "type": "text", "container": "yt-tab-shape", "label": "div", "match": "Shorts" },
+        { "type": "structural", "anchor": "ytd-browse[page-subtype=\"channels\"] ytd-item-section-renderer a[href^=\"/shorts/\"]", "container": "ytd-reel-shelf-renderer, ytd-rich-shelf-renderer, grid-shelf-view-model" }
+      ]
+    },
+    {
+      "id": "shorts-sidebar",
+      "label": "Shorts in the sidebar menu",
+      "default": true,
+      "group": "Shorts",
+      "locators": [
+        { "type": "css", "selector": "ytd-guide-entry-renderer:has(> a#endpoint[title=\"Shorts\"]), ytd-mini-guide-entry-renderer[aria-label=\"Shorts\"]" },
+        { "type": "text", "container": "ytd-guide-entry-renderer, ytd-mini-guide-entry-renderer", "label": ".title, yt-formatted-string", "match": "Shorts" },
+        { "type": "structural", "anchor": "ytd-guide-entry-renderer a[href^=\"/shorts\"], ytd-mini-guide-entry-renderer a[href^=\"/shorts\"]", "container": "ytd-guide-entry-renderer, ytd-mini-guide-entry-renderer" }
+      ]
+    },
+    {
+      "id": "shorts-watch",
+      "label": "Shorts in watch-page suggestions",
+      "default": true,
+      "group": "Shorts",
+      "locators": [
+        { "type": "css", "selector": "ytd-watch-flexy ytd-reel-shelf-renderer, ytd-watch-flexy grid-shelf-view-model:has(ytm-shorts-lockup-view-model, ytm-shorts-lockup-view-model-v2), ytd-watch-next-secondary-results-renderer yt-lockup-view-model:has(a[href^=\"/shorts/\"]), ytd-watch-next-secondary-results-renderer ytd-compact-video-renderer:has(a[href^=\"/shorts/\"])" },
+        { "type": "structural", "anchor": "ytd-watch-flexy a[href^=\"/shorts/\"]", "container": "ytd-reel-shelf-renderer, grid-shelf-view-model, yt-lockup-view-model, ytd-compact-video-renderer" }
+      ]
+    },
+    {
+      "id": "shorts-notifications",
+      "label": "Shorts in notifications",
+      "default": true,
+      "group": "Shorts",
+      "locators": [
+        { "type": "css", "selector": "ytd-notification-renderer:has(a[href^=\"/shorts/\"])" },
+        { "type": "structural", "anchor": "ytd-multi-page-menu-renderer a[href^=\"/shorts/\"]", "container": "ytd-notification-renderer" }
+      ]
+    },
+    {
+      "id": "watch-comments",
+      "label": "Comments",
+      "default": false,
+      "group": "Watch page",
+      "locators": [
+        { "type": "css", "selector": "ytd-watch-flexy ytd-comments#comments" },
+        { "type": "structural", "anchor": "ytd-watch-flexy ytd-comments-header-renderer", "container": "ytd-comments" }
+      ]
+    },
+    {
+      "id": "watch-endscreen",
+      "label": "End-screen recommendations",
+      "default": false,
+      "group": "Watch page",
+      "locators": [
+        { "type": "css", "selector": ".html5-video-player .ytp-ce-element, .html5-video-player .html5-endscreen" }
+      ]
+    },
+    {
+      "id": "watch-sidebar",
+      "label": "Recommended sidebar",
+      "default": false,
+      "group": "Watch page",
+      "locators": [
+        { "type": "css", "selector": "ytd-watch-flexy #related, ytd-watch-flexy ytd-watch-next-secondary-results-renderer" },
+        { "type": "structural", "anchor": "ytd-watch-flexy ytd-watch-next-secondary-results-renderer", "container": "#related" }
+      ]
+    },
+    {
+      "id": "home-feed",
+      "label": "Entire Home feed",
+      "default": false,
+      "group": "Home",
+      "locators": [
+        { "type": "css", "selector": "ytd-browse[page-subtype=\"home\"] ytd-rich-grid-renderer" }
+      ]
+    }
+  ]
+}

@@ -40,6 +40,7 @@ scripts/
   build.mjs                lint → unit tests → bundle → policy checks → zip
   policy.mjs               allowed permissions, manifest/CSP rules, size budget, source scan
   rules-key.mjs            generate the rules signing key; sign a rules file
+  publish-rules.mjs        npm run rules:publish — sign rules → docs/ (GitHub Pages) → commit → push
   check-remote-rules.mjs   canary check of the deployed (signed) rules file
   store.mjs                generates store/ (texts, privacy, landing, screenshots)
   icons.mjs                renders the SVG icon to 16/32/48/128 PNGs
@@ -50,6 +51,7 @@ tests/
   canary-reporter.js       writes test-results/canary-summary.json for the canary issue
 .github/workflows/canary.yml   daily 06:00 UTC + on push; opens "CANARY BROKEN: …" issues
 store/                     generated store kit (see below)
+docs/                      GitHub Pages: youtube/rules.json(.sig), landing page, privacy policy (generated)
 dist/                      build output: dist/youtube/ (unpacked) + dist/neat-youtube-<v>.zip
 ```
 
@@ -64,6 +66,8 @@ npm run test:unit
 npm run test:e2e       # live YouTube; needs network
 npm run store          # regenerate store/ including live screenshots
 npm run icons
+npm run rules:publish  # sign + publish rules (and landing/privacy) to GitHub Pages
+npm run rules:check    # verify the live rules file (needs RULES_URL, RULES_PUBLIC_KEY)
 ```
 
 The build fails if any manifest permission is outside `storage` + `alarms` +
@@ -140,32 +144,55 @@ the same `site`, needs no newer engine than the installed one, and has a
 strictly higher `version`. Otherwise the last good rules stay in place (and
 the bundled copy is always the floor).
 
-To ship a fix: edit `apps/youtube/rules/rules.json`, bump `version`, run
-`npm run test:unit`, sign it, and publish both files at the rules URL (e.g. a
-GitHub Pages branch):
+### Publishing (GitHub Pages, `docs/` on `main`)
 
-```bash
-npm run rules:key -- sign apps/youtube/rules/rules.json   # writes rules.json.sig
-```
+The rules host is GitHub Pages of this repository, published from the
+`docs/` folder of `main`:
+
+| What | URL |
+|---|---|
+| rules | <https://neat-extensions.github.io/neat-extensions/youtube/rules.json> (+ `.sig`) |
+| landing page | <https://neat-extensions.github.io/neat-extensions/> |
+| privacy policy | <https://neat-extensions.github.io/neat-extensions/privacy.html> |
+
+`docs/` is generated, never edited by hand. **To fix a YouTube breakage:**
+
+1. edit `apps/youtube/rules/rules.json` and bump `version`;
+2. `npm run test:unit` (and `npm run test:e2e` if you can);
+3. `npm run rules:publish`.
+
+`rules:publish` validates the rules, signs them with the private key
+(`.secrets/rules-private.jwk`, or `RULES_PRIVATE_KEY_FILE`), checks the
+signature against `site.config.js → rulesPublicKey`, writes
+`docs/youtube/rules.json` + `.sig` and the landing/privacy pages from
+`store/site/`, commits and pushes. It refuses changed rules with an unchanged
+`version`. Pages goes live within about a minute; `npm run rules:check` (with
+`RULES_URL` and `RULES_PUBLIC_KEY` set) fetches and verifies the live file,
+and the canary does the same daily. `docs/*/rules.json` is `-text` in
+`.gitattributes` so git never rewrites the signed bytes.
 
 Every installed copy picks it up within a day — no store submission, because
 rules are data (CSS selectors), not code. Changes to code, features or
 permissions still need a normal store release.
 
 The rules host must serve both files over HTTPS with
-`Access-Control-Allow-Origin: *` and **without redirects** (redirects are
-refused). The build sets the manifest CSP `connect-src` to that one origin.
+`Access-Control-Allow-Origin: *` (GitHub Pages does) and **without
+redirects** (redirects are refused). The build sets the manifest CSP
+`connect-src` to that one origin.
 
-Set both at build time:
+The rules URL and public key live in `apps/youtube/site.config.js`
+(`rulesUrl`, `rulesPublicKey`); `RULES_URL` / `RULES_PUBLIC_KEY` override
+them at build time. With the placeholder URL (`https://RULES_HOST/…`) or no
+key, the extension never makes a network request at all (CSP `connect-src
+'none'`) and `npm run release` refuses to build.
 
-```bash
-RULES_URL=https://<you>.github.io/neat-rules/neat-youtube/rules.json \
-RULES_PUBLIC_KEY='{"kty":"EC","crv":"P-256","x":"…","y":"…"}' npm run release
-```
+### Signing key
 
-(or put the public key in `site.config.js → rulesPublicKey`). While the URL is
-the placeholder or no key is set, the extension never makes a network request
-at all (CSP `connect-src 'none'`).
+`npm run rules:key -- generate` writes `.secrets/rules-private.jwk`
+(git-ignored) and prints the public key. The owner's backup copy is in
+`%USERPROFILE%\Documents\Neat-keys\`. Losing the private key means no rules
+update can ever be accepted by installed copies: generate a new key, put its
+public half in `site.config.js`, and ship a store release.
 
 ## Store kit (`store/`)
 
@@ -191,31 +218,20 @@ at all (CSP `connect-src 'none'`).
 
 ## Still owed by the owner (manual, one-time)
 
+Done: GitHub repo (public), Actions with read/write permissions, repository
+variables `RULES_URL` / `RULES_PUBLIC_KEY`, signing key, Pages hosting of the
+rules + landing page + privacy policy, `sourceUrl`.
+
 1. **Chrome Web Store developer account**: register at
    <https://chrome.google.com/webstore/devconsole> (one-time US$5 fee,
    identity verification), then upload `dist/neat-youtube-1.0.0.zip`, paste
-   `store/` texts, upload screenshots + promo tile, set the privacy-policy URL,
-   answer the data-use form from `store/listing.json`.
-2. **Rules signing key**: `npm run rules:key -- generate`. Keep
-   `.keys/rules-private.jwk` secret and backed up (losing it means a store
-   release to rotate keys). Put the printed public key in
-   `apps/youtube/site.config.js → rulesPublicKey`.
-3. **Rules host**: choose the URL (e.g. GitHub Pages of a `neat-rules` repo),
-   publish `apps/youtube/rules/rules.json` and its `.sig` there, set
-   `RULES_URL`, and build the store zip with `npm run release` (it refuses
-   placeholders).
-4. **GitHub**: create the repository, `git remote add origin …`, `git push -u
-   origin main`. The canary workflow starts on that push; it needs Actions
-   enabled and "Read and write" workflow permissions (Settings → Actions) so
-   it can open issues. Add repository **variables** `RULES_URL` and
-   `RULES_PUBLIC_KEY` so the canary also checks the deployed rules.
-5. **Source link**: set `sourceUrl` in `apps/youtube/listing.js` (backs the
-   "Open source." line and the privacy-policy contact), then `npm run store`.
-6. **After the first upload**, replace `EXTENSION_ID` in `scripts/store.mjs`
-   (`INSTALL_URL`, the landing page's install button) and regenerate
-   `npm run store`. (The in-extension review link uses the runtime id and
-   needs no change.)
-7. **Host the landing page and privacy policy** (`store/site/`, e.g. GitHub
-   Pages) and put the privacy URL in the store listing.
-8. **Brand**: if "Neat" changes, edit `brand.config.js`, then `npm run build`,
+   `store/` texts, upload screenshots + promo tile, set the privacy-policy URL
+   (`store/listing.json → privacyPolicyUrl`), answer the data-use form from
+   `store/listing.json`.
+2. **After the first upload**, set `EXTENSION_ID` in `scripts/store.mjs`
+   (until then the landing page shows a disabled "coming soon" button), then
+   `npm run store -- --no-shots` and `npm run rules:publish` to republish the
+   landing page. (The in-extension review link uses the runtime id and needs
+   no change.)
+3. **Brand**: if "Neat" changes, edit `brand.config.js`, then `npm run build`,
    `npm run icons`, `npm run store`.

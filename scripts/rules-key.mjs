@@ -1,7 +1,7 @@
 // Rules signing (ECDSA P-256 / SHA-256). The private key never leaves the owner's
-// machine (.keys/ is git-ignored); the public key is built into the extension.
+// machine (.secrets/ is git-ignored); the public key is built into the extension.
 //
-//   node scripts/rules-key.mjs generate            → .keys/rules-private.jwk + prints the public JWK
+//   node scripts/rules-key.mjs generate            → .secrets/rules-private.jwk + prints the public JWK
 //   node scripts/rules-key.mjs sign <rules.json>   → writes <rules.json>.sig next to it
 //   node scripts/rules-key.mjs verify <rules.json> <public.jwk|json>
 import { webcrypto as crypto } from "node:crypto";
@@ -9,7 +9,7 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
-const KEY_FILE = process.env.RULES_PRIVATE_KEY_FILE || path.join(ROOT, ".keys", "rules-private.jwk");
+const KEY_FILE = process.env.RULES_PRIVATE_KEY_FILE || path.join(ROOT, ".secrets", "rules-private.jwk");
 const ALG = { name: "ECDSA", namedCurve: "P-256" };
 const SIGN = { name: "ECDSA", hash: "SHA-256" };
 
