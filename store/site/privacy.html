@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Neat for YouTube — Privacy policy</title><style>
+:root{color-scheme:light dark;--bg:#fff;--surface:#f6f7f9;--text:#16181d;--muted:#5c6370;--border:#e1e4ea;--accent:#0f9d76;--accent-ink:#fff}
+@media (prefers-color-scheme:dark){:root{--bg:#15171c;--surface:#1d2027;--text:#e8eaee;--muted:#9aa2b1;--border:#2e333d;--accent:#34d3a3;--accent-ink:#062b20}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:17px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:860px;margin:0 auto;padding:40px 20px 80px}a{color:var(--accent)}
+h1{font-size:clamp(28px,5vw,44px);line-height:1.15;margin:.2em 0 .4em}h2{margin-top:2em}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700}.brand img{width:32px;height:32px}
+.btn{display:inline-block;background:var(--accent);color:var(--accent-ink);padding:12px 22px;border-radius:10px;text-decoration:none;font-weight:650}
+.muted{color:var(--muted)}.trust{list-style:none;padding:0}.trust li{padding:4px 0 4px 26px;position:relative}.trust li:before{content:"✓";position:absolute;left:4px;color:var(--accent);font-weight:700}
+.ba{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:24px 0}.ba figure{margin:0}.ba img{width:100%;border:1px solid var(--border);border-radius:10px;display:block}
+.ba figcaption{font-weight:650;margin-bottom:6px}@media (max-width:640px){.ba{grid-template-columns:1fr}}
+footer{margin-top:60px;font-size:14px}</style></head>
+<body><main>
+<p class="brand"><img src="icon-128.png" alt="">Neat for YouTube</p>
+<h1>Privacy policy</h1>
+<p class="muted">Last updated: 2026-10-23</p>
+<p><strong>Neat for YouTube does not collect, store, sell or share any personal data.</strong> It has no account, no analytics, no advertising and no tracking.</p>
+<h2>What stays on your device</h2>
+<p>Your settings (which items are hidden, the master switch, your allowed-channels list), the current hiding rules, a short self-check log, and a count of the days you used the extension (used once, to decide whether to show a single “leave a review” card) are kept in your browser's local extension storage. They never leave your device. Uninstalling the extension deletes them.</p>
+<h2>The one network request</h2>
+<p>So it keeps working when YouTube changes its layout, the extension may download an updated rules file (a small JSON list of CSS selectors) from a single fixed HTTPS address, at most about once a day. This request contains no information about you, your browsing or your settings: no cookies, no identifiers and no browsing history are sent. Like any web request, the server that hosts the file can see the IP address the request came from; we do not log or use it. The downloaded rules are checked strictly and can only hide page elements — they cannot run code.</p>
+<h2>Permissions</h2>
+<ul>
+<li><strong>Read and change your data on www.youtube.com</strong> — to hide the parts of YouTube you chose. The extension does not read or record what you watch, and runs on no other site.</li>
+<li><strong>Storage</strong> — to save your settings on this device.</li>
+<li><strong>Alarms</strong> — to check for updated rules once a day.</li>
+</ul>
+<h2>Children</h2><p>The extension collects no data from anyone, including children.</p>
+<h2>Changes</h2><p>If this policy ever changes, the new version will be published at this address before the change takes effect.</p>
+<h2>Contact</h2><p>Questions: open an issue in the project's public source repository (link to be added).</p>
+<p class="muted">Neat is not affiliated with or endorsed by YouTube or Google.</p>
+</main></body></html>

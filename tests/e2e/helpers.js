@@ -24,12 +24,13 @@ const CONSENT_COOKIE = { name: "SOCS", value: "CAI", domain: ".youtube.com", pat
 // Lets context.on("request") see requests made by the extension's service worker.
 process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS = "1";
 
-export async function launch({ extension = true, extDir = EXT_DIR, viewport = { width: 1400, height: 900 }, extraArgs = [] } = {}) {
+export async function launch({ extension = true, extDir = EXT_DIR, viewport = { width: 1400, height: 900 }, extraArgs = [], deviceScaleFactor } = {}) {
   const args = extension ? [`--disable-extensions-except=${extDir}`, `--load-extension=${extDir}`, ...extraArgs] : extraArgs;
   const context = await chromium.launchPersistentContext("", {
     channel: "chromium",
     headless: !process.env.HEADED,
     viewport,
+    ...(deviceScaleFactor ? { deviceScaleFactor } : {}),
     locale: "en-US",
     args: [...args, "--autoplay-policy=no-user-gesture-required"],
   });
@@ -138,4 +139,12 @@ export function coversRules(...ids) {
 
 export async function shot(page, name) {
   await page.screenshot({ path: path.join(SHOTS_DIR, `${name}.png`) }).catch(() => {});
+}
+
+/**
+ * A fresh logged-out profile gets an empty Home ("try searching"). Watching a
+ * couple of videos first makes YouTube fill Home with a normal feed, Shorts included.
+ */
+export async function warmUpHome(page) {
+  for (const v of ["jNQXAC9IVRw", "dQw4w9WgXcQ"]) await openYouTube(page, `https://www.youtube.com/watch?v=${v}`, "watch", { scroll: false });
 }

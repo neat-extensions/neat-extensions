@@ -2,7 +2,7 @@
 // YouTube Home over 30 seconds (load + scrolling) must stay under 150 ms.
 // Measured with the V8 sampling profiler: a sample counts if ANY frame on its
 // stack belongs to the extension, so native DOM calls it makes are included.
-import { test, expect, URLS, handleConsent } from "./helpers.js";
+import { test, expect, URLS, handleConsent, warmUpHome } from "./helpers.js";
 import { writeFileSync } from "node:fs";
 import path from "node:path";
 
@@ -10,8 +10,9 @@ const BUDGET_MS = 150;
 const WINDOW_MS = 30_000;
 
 test("engine scripting time on Home over 30 s stays under 150 ms", async ({ page, extensionId }) => {
-  test.setTimeout(120_000);
-  // Same-origin warm-up so the profiler is attached to the renderer that loads Home.
+  test.setTimeout(180_000);
+  await warmUpHome(page); // so Home shows a real feed, not the empty first-visit page
+  // Same-origin hop so the profiler is attached to the renderer that loads Home.
   await page.goto("https://www.youtube.com/robots.txt");
   const cdp = await page.context().newCDPSession(page);
   await cdp.send("Profiler.enable");

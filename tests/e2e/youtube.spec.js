@@ -1,7 +1,7 @@
 // Live end-to-end checks against real https://www.youtube.com pages with the
 // unpacked extension loaded. Oracles are independent of rules.json: they look
 // for what a user would see (links to /shorts/, a "Shorts" tab, …).
-import { test, expect, URLS, RULES, openYouTube, countVisible, countAttached, setSettings, allRulesOn, coversRules, shot } from "./helpers.js";
+import { test, expect, URLS, RULES, openYouTube, warmUpHome, countVisible, countAttached, setSettings, allRulesOn, coversRules, shot } from "./helpers.js";
 
 const MARK = "data-neat-hide";
 
@@ -52,12 +52,13 @@ test.describe("default settings", () => {
   test("home: Shorts sidebar entry and Shorts shelf hidden, feed untouched", async ({ page, context, extensionId }) => {
     coversRules("shorts-sidebar", "shorts-home", "home-feed");
     const ext = watchExtension(context, page, extensionId);
+    await warmUpHome(page);
     await openYouTube(page, URLS.home, "home");
     await shot(page, "home");
     expect(await countAttached(page, "ytd-guide-entry-renderer")).toBeGreaterThan(3);
     expect(await countVisible(page, "ytd-guide-entry-renderer, ytd-mini-guide-entry-renderer", { text: "Shorts" })).toBe(0);
     expect(await countVisible(page, "ytd-guide-entry-renderer", { text: "Subscriptions" })).toBe(1); // neighbours untouched
-    await noteIfVacuous(page, 'ytd-browse[page-subtype="home"] a[href^="/shorts/"]', "Shorts on Home (logged-out Home is often empty)");
+    await noteIfVacuous(page, 'ytd-browse[page-subtype="home"] a[href^="/shorts/"]', "Shorts on Home");
     expect(await countVisible(page, 'ytd-browse[page-subtype="home"] a[href^="/shorts/"]')).toBe(0);
     // home-feed is OFF by default: the feed container must be shown
     expect(await countVisible(page, 'ytd-browse[page-subtype="home"] ytd-rich-grid-renderer')).toBe(1);

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>How to hide YouTube Shorts — Neat for YouTube</title>
+<meta name="description" content="Hide YouTube Shorts everywhere — Home, search, subscriptions, channels, sidebar — and open Shorts links as normal videos.">
+<link rel="icon" href="icon-128.png">
+<style>
+:root{color-scheme:light dark;--bg:#fff;--surface:#f6f7f9;--text:#16181d;--muted:#5c6370;--border:#e1e4ea;--accent:#0f9d76;--accent-ink:#fff}
+@media (prefers-color-scheme:dark){:root{--bg:#15171c;--surface:#1d2027;--text:#e8eaee;--muted:#9aa2b1;--border:#2e333d;--accent:#34d3a3;--accent-ink:#062b20}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:17px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:860px;margin:0 auto;padding:40px 20px 80px}a{color:var(--accent)}
+h1{font-size:clamp(28px,5vw,44px);line-height:1.15;margin:.2em 0 .4em}h2{margin-top:2em}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700}.brand img{width:32px;height:32px}
+.btn{display:inline-block;background:var(--accent);color:var(--accent-ink);padding:12px 22px;border-radius:10px;text-decoration:none;font-weight:650}
+.muted{color:var(--muted)}.trust{list-style:none;padding:0}.trust li{padding:4px 0 4px 26px;position:relative}.trust li:before{content:"✓";position:absolute;left:4px;color:var(--accent);font-weight:700}
+.ba{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:24px 0}.ba figure{margin:0}.ba img{width:100%;border:1px solid var(--border);border-radius:10px;display:block}
+.ba figcaption{font-weight:650;margin-bottom:6px}@media (max-width:640px){.ba{grid-template-columns:1fr}}
+footer{margin-top:60px;font-size:14px}</style></head>
+<body><main>
+<p class="brand"><img src="icon-128.png" alt="">Neat</p>
+<h1>How to hide YouTube Shorts</h1>
+<p>Install <strong>Neat for YouTube</strong>, a free Chrome extension. Shorts gone. YouTube back to videos. No settings to learn: Shorts disappear from Home, search, subscriptions, channel pages and the sidebar, and any Shorts link opens as a normal video.</p>
+<p><a class="btn" href="https://chromewebstore.google.com/detail/EXTENSION_ID" id="install">Add to Chrome — it's free</a></p>
+<ul class="trust"><li>No account.</li><li>Nothing leaves your browser.</li><li>Open source.</li></ul>
+<div class="ba">
+  <figure><figcaption>Before</figcaption><img src="before.png" alt="YouTube Home with a Shorts shelf and Shorts in the sidebar"></figure>
+  <figure><figcaption>After</figcaption><img src="after.png" alt="The same YouTube Home with Shorts removed"></figure>
+</div>
+<h2>What it does</h2>
+<ul><li>Removes the Shorts shelf from Home, Subscriptions and search results.</li><li>Hides the Shorts tab and Shorts shelves on channel pages, and Shorts in the sidebar menu and notifications.</li><li>Opens any /shorts/ link as a normal video page, with a normal player and controls.</li><li>Optional: hide comments, end-screen suggestions, the recommended sidebar or the whole Home feed, and turn off autoplay.</li><li>One master switch and a keyboard shortcut (Alt+Shift+Y) to turn everything off and on.</li><li>Allow list: keep everything visible on the channels you choose.</li><li>Changes apply instantly — no page reload.</li><li>Light and dark mode. Tiny, fast, and idle when the page is idle.</li></ul>
+<h2>Steps</h2>
+<ol><li>Click <em>Add to Chrome</em>.</li><li>Open YouTube. Shorts are gone.</li><li>Optional: click the Neat icon to choose exactly what to hide.</li></ol>
+<h2>Is it safe?</h2>
+<p>How it works: Neat hides page elements with a style sheet inside your browser. To keep working when YouTube changes its layout, it may download an updated list of hiding rules (a small JSON file containing only CSS selectors) once a day. That download sends no information about you, and the rules can only hide things — they cannot run code.</p>
+<footer class="muted"><a href="privacy.html">Privacy policy</a> · Neat is not affiliated with YouTube or Google.</footer>
+</main></body></html>
