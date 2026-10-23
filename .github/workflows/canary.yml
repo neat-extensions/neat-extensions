@@ -74,6 +74,20 @@ jobs:
           E2E_RULES_URL: ${{ vars.RULES_URL }}
           E2E_RULES_PUBLIC_KEY: ${{ vars.RULES_PUBLIC_KEY }}
 
+      # Tests YouTube blocked (reCAPTCHA / bot wall on the runner's IP) are skipped, not failed:
+      # make them loud in the run summary so a blocked canary never passes unnoticed.
+      - name: Report tests YouTube blocked
+        if: always()
+        run: |
+          node -e '
+            const fs = require("fs");
+            let s; try { s = JSON.parse(fs.readFileSync("test-results/canary-summary.json", "utf8")); } catch { process.exit(0); }
+            const b = s.blocked || [];
+            const lines = [`### Canary: ${s.passed} passed, ${s.failedTests.length} failed, ${b.length} blocked by YouTube`, ...b.map(x => `- ${x.title} — ${x.reason}`)];
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join("\n") + "\n");
+            if (b.length) console.log(`::warning title=YouTube blocked ${b.length} canary test(s)::Not judged this run (runner IP challenged): ${b.map(x => x.title).join("; ")}`);
+          '
+
       - name: Upload screenshots (one per page)
         if: always()
         uses: actions/upload-artifact@v4

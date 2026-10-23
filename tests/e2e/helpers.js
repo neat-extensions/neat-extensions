@@ -89,11 +89,31 @@ const READY = {
   channel: "ytd-browse[page-subtype='channels'] ytd-tabbed-page-header, ytd-browse[page-subtype='channels'] #tabsContent, ytd-browse[page-subtype='channels'] yt-tab-group-shape",
 };
 
+// From datacenter IPs (CI runners) Google sometimes answers with its "unusual traffic"
+// reCAPTCHA page, or swaps the player for a "confirm you're not a bot" wall. Then the
+// rules cannot be judged at all: the test is skipped with this annotation (never solved,
+// never reported as a broken rule) and the canary summary counts it as blocked.
+export const BLOCKED = "youtube-blocked";
+
+export async function skipIfBlocked(page, { botWall = false } = {}) {
+  let reason = null;
+  if (/^https:\/\/www\.google\.[a-z.]+\/sorry\//.test(page.url())) reason = "Google 'unusual traffic' reCAPTCHA page";
+  else if (await page.getByText(/unusual traffic from your computer network/i).first().isVisible().catch(() => false)) reason = "Google 'unusual traffic' page";
+  else if (botWall && (await page.getByText(/confirm you.?re not a bot/i).first().isVisible().catch(() => false))) reason = "'confirm you're not a bot' wall instead of the player";
+  if (!reason) return;
+  base.info().annotations.push({ type: BLOCKED, description: reason });
+  base.skip(true, `YouTube blocked this browser: ${reason}`);
+}
+
 /** Navigate, clear consent, wait for YouTube's app to hydrate, then nudge lazy content. */
 export async function openYouTube(page, url, kind, { scroll = true } = {}) {
   await page.goto(url, { waitUntil: "domcontentloaded" });
+  await skipIfBlocked(page);
   await handleConsent(page);
-  await page.waitForSelector("ytd-app", { state: "attached", timeout: 30_000 });
+  await page.waitForSelector("ytd-app", { state: "attached", timeout: 30_000 }).catch(async (e) => {
+    await skipIfBlocked(page);
+    throw e;
+  });
   if (READY[kind]) await page.waitForSelector(READY[kind], { state: "attached", timeout: 30_000 });
   await page.waitForLoadState("load").catch(() => {});
   if (scroll) {

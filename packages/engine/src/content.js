@@ -43,7 +43,9 @@ export function startContent({ site, bundledRules, features = [] }) {
   let paused = false; // allow-listed channel
   let ready = false;
   let dead = false;
-  let navigated = false; // any in-app navigation since this document loaded
+  // URL this document was loaded for. YouTube fires its navigation event for the initial page
+  // too (often before "load"), so "has the URL changed" is the test, not "did an event fire".
+  const loadedHref = location.href;
 
   const pending = new Set();
   let fullPassPending = false;
@@ -334,7 +336,7 @@ export function startContent({ site, bundledRules, features = [] }) {
 
   /** On a fresh channel-page load, the URL handle and canonical id belong together: teach the allow list. */
   function learnAlias() {
-    if (navigated || !settings.allowlist.length) return;
+    if (location.href !== loadedHref || !settings.allowlist.length) return;
     const c = site.pageContext(doc, location).channel;
     if (c && c.handle && c.id && (settings.allowlist.includes(c.handle) || settings.allowlist.includes(c.id)) && settings.aliases[c.id] !== c.handle) {
       send({ type: "allow:alias", id: c.id, handle: c.handle });
@@ -347,9 +349,8 @@ export function startContent({ site, bundledRules, features = [] }) {
     listeners.push([target, type, fn, cap]);
   }
 
-  function onNavigate(e) {
+  function onNavigate() {
     if (orphaned() || !ready) return;
-    if (e && e.type !== "load") navigated = true;
     applyConfig();
     requestCheck(true);
     for (const f of features) if (f.onNavigate) f.onNavigate(ctx);

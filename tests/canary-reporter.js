@@ -7,6 +7,7 @@ export default class CanaryReporter {
   constructor(options = {}) {
     this.outputFile = options.outputFile || "test-results/canary-summary.json";
     this.failed = [];
+    this.blocked = [];
     this.passed = 0;
   }
 
@@ -18,7 +19,12 @@ export default class CanaryReporter {
       this.passed++;
       return;
     }
-    if (result.status === "skipped") return;
+    if (result.status === "skipped") {
+      // Skipped because YouTube blocked the runner (see helpers.js BLOCKED): could not be judged.
+      const why = result.annotations?.find((a) => a.type === "youtube-blocked") || test.annotations.find((a) => a.type === "youtube-blocked");
+      if (why) this.blocked.push({ title: test.titlePath().slice(1).join(" › "), reason: why.description });
+      return;
+    }
     this.failed.push({
       title: test.titlePath().slice(1).join(" › "),
       rules: test.annotations.filter((a) => a.type === "rule").map((a) => a.description),
@@ -30,7 +36,7 @@ export default class CanaryReporter {
 
   onEnd() {
     const rules = [...new Set(this.failed.flatMap((f) => f.rules))].sort();
-    const summary = { site: "youtube", ok: this.failed.length === 0, passed: this.passed, failedRules: rules, failedTests: this.failed };
+    const summary = { site: "youtube", ok: this.failed.length === 0, passed: this.passed, failedRules: rules, failedTests: this.failed, blocked: this.blocked };
     mkdirSync(path.dirname(this.outputFile), { recursive: true });
     writeFileSync(this.outputFile, JSON.stringify(summary, null, 2));
   }

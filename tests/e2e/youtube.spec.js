@@ -1,7 +1,7 @@
 // Live end-to-end checks against real https://www.youtube.com pages with the
 // unpacked extension loaded. Oracles are independent of rules.json: they look
 // for what a user would see (links to /shorts/, a "Shorts" tab, …).
-import { test, expect, URLS, RULES, MARK, STYLE, ALLOWED_EXT_REQUESTS, openYouTube, warmUpHome, countVisible, countAttached, setSettings, allRulesOn, coversRules, shot } from "./helpers.js";
+import { test, expect, URLS, RULES, MARK, STYLE, ALLOWED_EXT_REQUESTS, openYouTube, skipIfBlocked, warmUpHome, countVisible, countAttached, setSettings, allRulesOn, coversRules, shot } from "./helpers.js";
 
 
 /** Collect console errors and page errors that come from the extension, and every request it makes. */
@@ -110,7 +110,10 @@ test.describe("default settings", () => {
     const navigations = [];
     page.on("framenavigated", (f) => f === page.mainFrame() && navigations.push(f.url()));
     await page.goto(`https://www.youtube.com/shorts/${id}`, { waitUntil: "domcontentloaded" });
-    await page.waitForURL(new RegExp(`/watch\\?v=${id}`), { timeout: 20_000 });
+    await page.waitForURL(new RegExp(`/watch\\?v=${id}`), { timeout: 20_000 }).catch(async (e) => {
+      await skipIfBlocked(page);
+      throw e;
+    });
     await page.waitForTimeout(4000);
     await shot(page, "shorts-redirect");
     expect(page.url()).toContain(`/watch?v=${id}`);
@@ -175,14 +178,8 @@ test.describe("every rule on", () => {
     coversRules("watch-endscreen", "autoplay-off");
     await setSettings(worker, { toggles: { ...allRulesOn(), "autoplay-off": true } });
     await openYouTube(page, URLS.watch, "watch");
-    // From datacenter IPs (CI runners) YouTube may replace the player with a sign-in bot check;
-    // there is no player to test then. Reported as skipped, never as a broken rule.
-    const botWall = await page
-      .getByText(/confirm you.?re not a bot/i)
-      .first()
-      .isVisible()
-      .catch(() => false);
-    test.skip(botWall, "YouTube showed its 'confirm you're not a bot' wall instead of the player");
+    // No player to test behind YouTube's bot wall (CI IPs): skipped as blocked, never a broken rule.
+    await skipIfBlocked(page, { botWall: true });
     expect(await page.locator(".html5-video-player .html5-endscreen").first().evaluate((e) => getComputedStyle(e).display)).toBe("none");
     await expect(page.locator(".ytp-autonav-toggle-button").first()).toHaveAttribute("aria-checked", "false", { timeout: 15_000 });
   });
