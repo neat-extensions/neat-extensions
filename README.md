@@ -42,8 +42,12 @@ scripts/
   rules-key.mjs            generate the rules signing key; sign a rules file
   publish-rules.mjs        npm run rules:publish — sign rules → docs/ (GitHub Pages) → commit → push
   check-remote-rules.mjs   canary check of the deployed (signed) rules file
+  cws.mjs                  Chrome Web Store API v2: auth / status / upload / publish (--publish only)
+  ship.mjs                 npm run release:ship — release pipeline → upload → status [→ --publish]
   store.mjs                generates store/ (texts, privacy, landing, screenshots)
   icons.mjs                renders the SVG icon to 16/32/48/128 PNGs
+tools/finder/              niche finder: store search → listings → scored report (npm run finder)
+finder/                    queries.txt, report-<date>.md
 tests/
   unit/                    validator, versions, updater, self-check (fixture HTML), policy, site config
   e2e/                     live YouTube with the unpacked extension loaded
@@ -226,6 +230,71 @@ public half in `site.config.js`, and ship a store release.
 * On Windows inside an app that virtualises `%LOCALAPPDATA%`, install browsers
   to a real folder: `PLAYWRIGHT_BROWSERS_PATH=.browsers npx playwright install chromium`
   and run tests with the same variable.
+
+## Chrome Web Store API (`scripts/cws.mjs`)
+
+After the first manual submission, releases go up without the dashboard form,
+through the [Chrome Web Store API v2](https://developer.chrome.com/docs/webstore/using-api).
+
+```bash
+npm run cws:status  -- <itemId>            # review / publish state of the item
+npm run cws:upload  -- <itemId> <zip>      # new package as a draft (does not publish)
+npm run cws:publish -- <itemId> --publish  # submit for review; refuses without --publish
+npm run release:ship                       # release pipeline → upload → status (draft only)
+npm run release:ship -- --publish          # ...and submit for review
+```
+
+`release:ship` runs the whole release pipeline first (lint, unit, build,
+policy, zip, live e2e) and uploads nothing if any step fails. It uses
+`apps/<site>/site.config.js → storeItemId`.
+
+**Credentials** live only in `.secrets/` (git-ignored), with the owner's backup
+in `%USERPROFILE%\Documents\Neat-keys\`:
+
+* `.secrets/cws-client.json` — `{ "client_id", "client_secret", "publisher_id" }`
+  from a Google Cloud **Desktop app** OAuth client in project `neat-extensions`
+  (Chrome Web Store API enabled), and the publisher id from the dashboard URL.
+* `.secrets/cws-token.json` — the refresh token from the one-time
+  `npm run cws -- auth`. It prints a consent URL, catches Google's redirect
+  on `127.0.0.1` (PKCE + state), and stores the token. If the browser can't
+  reach the local port, paste the final address-bar URL into
+  `npm run cws -- auth --code "<url>"`.
+
+While the OAuth consent screen is in **Testing**, Google expires refresh tokens
+after 7 days: re-run `npm run cws -- auth` (or move the consent screen to
+**In production**). The account needs 2-step verification to publish.
+
+## Finder (`tools/finder/`)
+
+Which extension niches have real demand and weak incumbents?
+
+```bash
+npm run finder                      # all phrases in finder/queries.txt
+npm run finder -- --only "pdf merge"
+```
+
+For each phrase it fetches the public Chrome Web Store search page (no login),
+then each of the top 10 listings' page, their reviews page (10 most recent)
+and their declared permissions, read from the package's `manifest.json` via
+Google's public update server. Packages are parsed in memory, never run;
+anything over 25 MB is skipped. One request at a time per host, 2.5 s apart
+with jitter, `Retry-After` honoured, Google's consent banner declined, pages
+cached for 24 h in `finder/.cache/`. If the store blocks the run, listings fall
+back to extscope.org (chrome-stats.com sits behind a bot challenge, which the
+finder does not try to pass) and the report says so.
+
+Scoring uses the top 5 listings per phrase (`tools/finder/score.mjs`):
+
+* **demand** = sum of user counts, with each listing capped at 40% of the
+  total, so a single giant can't make a niche look big;
+* **weakness** = share rated under 4.2, OR not updated in 12 months, OR with
+  "stopped working / doesn't work / broken" in the 10 latest reviews;
+* **opportunity** = demand × weakness, 0 below 500 users.
+
+Output: `finder/report-<date>.md`, committed. Each listing links to the page its
+numbers came from. `finder/data-<date>.json` (git-ignored) holds the raw
+extraction, with the exact page line behind every number. A number whose line
+isn't found in the fetched page fails the run. Reviewer names are never kept.
 
 ## Still owed by the owner (manual, one-time)
 

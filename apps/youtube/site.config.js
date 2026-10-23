@@ -74,6 +74,8 @@ export default {
   // Public half of the rules-signing key (scripts/rules-key.mjs). Override with RULES_PUBLIC_KEY.
   // While null, remote rules are disabled entirely. Private half: .secrets/ (never committed).
   rulesPublicKey: { kty: "EC", crv: "P-256", x: "i4iJ16P-SZ_jd8JKoGZKHxAJThFlHYBtGe5LMofjzD8", y: "GZDTYeioOqm34v-qNeQrk7QOoBIR18ApuFOpbvC9Oaw" },
+  // Chrome Web Store item id (32 letters a–p), used by npm run release:ship. Set once the item exists.
+  storeItemId: null,
   masterCommand: { id: "toggle-master", key: "Alt+Shift+Y" },
   navigationEvents: ["yt-navigate-finish", "yt-page-data-updated"],
   groups: ["Shorts", "Watch page", "Home"],

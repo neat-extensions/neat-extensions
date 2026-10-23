@@ -1,0 +1,52 @@
+# Finder search phrases. One per line; "# Family: …" lines start a family.
+# Blank lines and other "#" lines are ignored.
+
+# Family: Site fixers (YouTube / LinkedIn / X / Reddit)
+hide youtube shorts
+youtube distraction free
+youtube remove recommendations
+linkedin feed blocker
+linkedin hide promoted posts
+twitter x feed cleaner
+hide x for you tab
+twitter hide likes and views
+reddit old layout
+reddit hide promoted posts
+
+# Family: AI chat tools (export, folders, prompts)
+chatgpt export conversation
+export chatgpt to pdf
+claude chat export
+gemini chat export
+chatgpt folders
+chatgpt conversation organizer
+chatgpt prompt library
+ai prompt manager
+save chatgpt prompts
+
+# Family: Capture and convert (screenshot to text, PDF, screen recorder)
+screenshot to text
+copy text from image
+ocr screen capture
+pdf merge
+pdf editor
+pdf to word
+compress pdf
+screen recorder
+screen recorder with drawing
+screen recording select area
+
+# Family: Tabs and lists
+tab list export
+copy all tab urls
+tab manager
+save tabs as list
+session manager
+
+# Family: Data export (Amazon orders, Rightmove)
+amazon order history export
+amazon orders to csv
+amazon purchase history download
+rightmove export
+rightmove property data
+property listing scraper

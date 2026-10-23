@@ -10,3 +10,5 @@ dist-test*/
 dist-store/
 .keys/
 .secrets/
+finder/.cache/
+finder/data-*.json

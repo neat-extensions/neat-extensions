@@ -15,7 +15,13 @@
     "rules:key": "node scripts/rules-key.mjs",
     "store": "node scripts/store.mjs",
     "rules:publish": "node scripts/publish-rules.mjs",
-    "rules:check": "node scripts/check-remote-rules.mjs"
+    "rules:check": "node scripts/check-remote-rules.mjs",
+    "cws": "node scripts/cws.mjs",
+    "cws:status": "node scripts/cws.mjs status",
+    "cws:upload": "node scripts/cws.mjs upload",
+    "cws:publish": "node scripts/cws.mjs publish",
+    "release:ship": "node scripts/ship.mjs",
+    "finder": "node tools/finder/finder.mjs"
   },
   "engines": {
     "node": ">=20"

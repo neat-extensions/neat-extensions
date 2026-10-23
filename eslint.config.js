@@ -28,7 +28,7 @@ export default [
     },
   },
   {
-    files: ["scripts/**/*.mjs", "tests/**/*.js", "tests/**/*.mjs", "*.config.js", "*.config.mjs"],
+    files: ["scripts/**/*.mjs", "tools/**/*.mjs", "tests/**/*.js", "tests/**/*.mjs", "*.config.js", "*.config.mjs"],
     languageOptions: { ecmaVersion: 2024, sourceType: "module", globals: { ...globals.node, ...globals.browser, chrome: "readonly" } },
     rules: { "no-unused-vars": ["error", { argsIgnorePattern: "^_" }] },
   },
