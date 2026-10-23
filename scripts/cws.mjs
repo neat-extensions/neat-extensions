@@ -35,10 +35,10 @@ async function readJson(file, what) {
   }
 }
 
-async function client() {
+async function client({ needPublisher = true } = {}) {
   const c = await readJson(CLIENT_FILE, "OAuth client");
   if (!c.client_id || !c.client_secret) fail("cws-client.json needs client_id and client_secret");
-  if (!c.publisher_id) fail("cws-client.json needs publisher_id (Developer Dashboard → Settings, or the dashboard URL)");
+  if (needPublisher && !c.publisher_id) fail("cws-client.json needs publisher_id (Developer Dashboard → Settings, or the dashboard URL)");
   return c;
 }
 
@@ -51,7 +51,7 @@ async function token(params) {
 }
 
 async function accessToken() {
-  const c = await client();
+  const c = await client({ needPublisher: false });
   const t = await readJson(TOKEN_FILE, "refresh token (run: npm run cws -- auth)");
   const r = await token({ client_id: c.client_id, client_secret: c.client_secret, refresh_token: t.refresh_token, grant_type: "refresh_token" });
   return { c, at: r.access_token };
@@ -103,7 +103,7 @@ export async function publish(id, { confirmed } = {}) {
 const b64url = (b) => b.toString("base64url");
 
 async function exchange(code, pending) {
-  const c = await client();
+  const c = await client({ needPublisher: false });
   const r = await token({ client_id: c.client_id, client_secret: c.client_secret, code, code_verifier: pending.verifier, redirect_uri: pending.redirect, grant_type: "authorization_code" });
   if (!r.refresh_token) fail("Google returned no refresh token — revoke the app at https://myaccount.google.com/permissions and run auth again");
   await writeFile(TOKEN_FILE, JSON.stringify({ refresh_token: r.refresh_token, scope: r.scope, created: new Date().toISOString() }), { mode: 0o600 });
@@ -112,7 +112,7 @@ async function exchange(code, pending) {
 }
 
 async function auth(args) {
-  const c = await client();
+  const c = await client({ needPublisher: false });
   await mkdir(SECRETS, { recursive: true });
   const pasted = args[args.indexOf("--code") + 1];
   if (args.includes("--code")) {
