@@ -22,6 +22,7 @@ export default class CanaryReporter {
     this.failed.push({
       title: test.titlePath().slice(1).join(" › "),
       rules: test.annotations.filter((a) => a.type === "rule").map((a) => a.description),
+      // eslint-disable-next-line no-control-regex -- strip ANSI colour codes
       error: (result.error?.message || "").replace(/\u001b\[[0-9;]*m/g, "").split("\n").slice(0, 4).join(" ").slice(0, 400),
       screenshots: result.attachments.filter((a) => a.contentType === "image/png" && a.path).map((a) => a.path),
     });

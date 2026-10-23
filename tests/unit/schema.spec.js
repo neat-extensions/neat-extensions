@@ -5,7 +5,6 @@ import { validateRules, parseRulesText, validateRulesUrl, isPlaceholderUrl, look
 
 const ROOT = path.resolve(import.meta.dirname, "..", "..");
 const bundled = JSON.parse(readFileSync(path.join(ROOT, "apps", "youtube", "rules", "rules.json"), "utf8"));
-const clone = () => structuredClone(bundled);
 const minimal = () => ({
   version: "1.0.0",
   site: "youtube",

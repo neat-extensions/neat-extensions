@@ -21,8 +21,11 @@ export const URLS = {
 
 const CONSENT_COOKIE = { name: "SOCS", value: "CAI", domain: ".youtube.com", path: "/", secure: true, sameSite: "Lax" };
 
-export async function launch({ extension = true, extDir = EXT_DIR, viewport = { width: 1400, height: 900 } } = {}) {
-  const args = extension ? [`--disable-extensions-except=${extDir}`, `--load-extension=${extDir}`] : [];
+// Lets context.on("request") see requests made by the extension's service worker.
+process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS = "1";
+
+export async function launch({ extension = true, extDir = EXT_DIR, viewport = { width: 1400, height: 900 }, extraArgs = [] } = {}) {
+  const args = extension ? [`--disable-extensions-except=${extDir}`, `--load-extension=${extDir}`, ...extraArgs] : extraArgs;
   const context = await chromium.launchPersistentContext("", {
     channel: "chromium",
     headless: !process.env.HEADED,
@@ -119,7 +122,7 @@ export async function countAttached(page, selector) {
 export async function setSettings(worker, patch) {
   await worker.evaluate(async (patch) => {
     const { settings = {} } = await chrome.storage.local.get("settings");
-    const next = { enabled: true, toggles: {}, allowlist: [], ...settings, ...patch, toggles: { ...(settings.toggles || {}), ...(patch.toggles || {}) } };
+    const next = { enabled: true, allowlist: [], ...settings, ...patch, toggles: { ...(settings.toggles || {}), ...(patch.toggles || {}) } };
     await chrome.storage.local.set({ settings: next });
   }, patch);
 }

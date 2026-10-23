@@ -55,18 +55,31 @@ export const shortsRedirect = {
   },
 };
 
-let handledVideo = null;
+// The toggle exists before the player wires up its click handler, so a click can
+// be ignored. Retry on later passes (spaced, capped) until it reads "off"; then
+// leave it alone for this video so a user who turns it back on is not overruled.
+const AUTOPLAY_MAX_TRIES = 8;
+const AUTOPLAY_GAP_MS = 750;
+let autoplayState = { video: null, done: false, tries: 0, last: 0 };
 function autoplayOff(ctx) {
   if (location.pathname !== "/watch" || !ctx.isOn("autoplay-off")) return;
   const v = new URLSearchParams(location.search).get("v");
-  if (!v || v === handledVideo) return;
+  if (!v) return;
+  if (autoplayState.video !== v) autoplayState = { video: v, done: false, tries: 0, last: 0 };
+  const s = autoplayState;
+  if (s.done || s.tries >= AUTOPLAY_MAX_TRIES) return;
   const btn = document.querySelector(".ytp-autonav-toggle-button");
   if (!btn) return; // player not built yet; the next pass will try again
-  handledVideo = v; // once per video, so a user who turns it back on is not overruled
-  if (btn.getAttribute("aria-checked") === "true") {
-    const button = btn.closest("button") || btn;
-    button.click();
+  if (btn.getAttribute("aria-checked") !== "true") {
+    s.done = true;
+    return;
   }
+  const now = performance.now();
+  if (now - s.last < AUTOPLAY_GAP_MS) return;
+  s.last = now;
+  s.tries++;
+  (btn.closest("button") || btn).click();
+  if (btn.getAttribute("aria-checked") !== "true") s.done = true;
 }
 
 export const autoplay = { onNavigate: autoplayOff, onPass: autoplayOff, onReady: autoplayOff };
