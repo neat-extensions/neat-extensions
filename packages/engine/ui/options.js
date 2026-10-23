@@ -1,4 +1,3 @@
-import { BRAND } from "../../../brand.config.js";
 import { ENGINE_VERSION } from "../src/version.js";
 import { KEYS } from "../src/settings.js";
 import { el, loadState, updateSettings, renderToggles, syncToggles } from "./toggles.js";
@@ -10,7 +9,7 @@ export async function startOptions({ site, bundledRules, moreProducts = [] }) {
   // General + rules
   const master = $("master");
   master.addEventListener("change", () => updateSettings((s) => (s.enabled = master.checked)));
-  renderToggles($("groups"), site, state.rules, state.settings);
+  renderToggles($("groups"), site, state.rules, state.settings, "h3");
 
   // Allow list
   $("allow-title").textContent = site.allowlist.title;
@@ -21,7 +20,7 @@ export async function startOptions({ site, bundledRules, moreProducts = [] }) {
     e.preventDefault();
     const key = site.normalizeChannel(input.value);
     if (!key) {
-      $("allow-error").textContent = "That doesn't look like a channel handle, URL or ID.";
+      $("allow-error").textContent = site.allowlist.invalid;
       return;
     }
     $("allow-error").textContent = "";
@@ -43,7 +42,12 @@ export async function startOptions({ site, bundledRules, moreProducts = [] }) {
             class: "icon-btn",
             "aria-label": `Remove ${key}`,
             text: "×",
-            onclick: () => updateSettings((s) => (s.allowlist = s.allowlist.filter((k) => k !== key))),
+            onclick: () =>
+              updateSettings((s) => {
+                s.allowlist = s.allowlist.filter((k) => k !== key);
+                // forget learned id↔handle pairs for this channel too
+                for (const [id, handle] of Object.entries(s.aliases)) if (id === key || handle === key) delete s.aliases[id];
+              }),
           }),
         ),
       ),
@@ -89,7 +93,7 @@ export async function startOptions({ site, bundledRules, moreProducts = [] }) {
     }
   });
   $("d-clear").addEventListener("click", async () => {
-    await chrome.storage.local.set({ [KEYS.diagnostics]: [] });
+    await chrome.runtime.sendMessage({ type: "diag:clear" }); // through the worker's queue, so in-flight reports can't resurrect entries
     paintDiagnostics();
   });
   $("d-refresh").addEventListener("click", async () => {
@@ -102,7 +106,7 @@ export async function startOptions({ site, bundledRules, moreProducts = [] }) {
 
   // About
   const more = $("more");
-  more.replaceChildren(...moreProducts.map((p) => el("li", {}, el("strong", { text: `${BRAND} for ${p.name}` }), el("span", { class: "muted", text: ` — ${p.blurb}` }))));
+  more.replaceChildren(...moreProducts.map((p) => el("li", {}, el("strong", { text: p.name }), el("span", { class: "muted", text: ` — ${p.blurb}` }))));
 
   function paint() {
     master.checked = state.settings.enabled;
@@ -111,12 +115,13 @@ export async function startOptions({ site, bundledRules, moreProducts = [] }) {
   }
   paint();
   paintDiagnostics();
+  requestAnimationFrame(() => document.body.classList.add("ready"));
 
   chrome.storage.onChanged.addListener(async (changes, area) => {
     if (area !== "local") return;
     if (changes[KEYS.settings] || changes[KEYS.rules]) {
       state = await loadState(site, bundledRules);
-      syncToggles($("groups"), site, state.rules, state.settings);
+      syncToggles($("groups"), site, state.rules, state.settings, "h3");
       paint();
     }
     if (changes[KEYS.diagnostics] || changes[KEYS.rulesMeta] || changes[KEYS.rules]) paintDiagnostics();

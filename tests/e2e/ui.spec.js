@@ -1,6 +1,16 @@
 // Popup and options page: live toggling, allow list, diagnostics, review card, dark mode.
 import { test, expect, URLS, RULES, openYouTube, countVisible, coversRules, shot } from "./helpers.js";
 
+test("forced-colours (Windows High Contrast): switch state stays visible", async ({ context, extensionId }) => {
+  const p = await context.newPage();
+  await p.emulateMedia({ forcedColors: "active" });
+  await p.goto(`chrome-extension://${extensionId}/popup.html`);
+  const on = p.locator('input[data-id="shorts-search"]');
+  const off = p.locator('input[data-id="watch-comments"]');
+  const bg = (l) => l.evaluate((e) => getComputedStyle(e).backgroundColor);
+  expect(await bg(on)).not.toBe(await bg(off));
+});
+
 test("popup toggles change the open YouTube page live, without reload", async ({ context, page, extensionId }) => {
   coversRules("watch-sidebar", "watch-comments");
   await openYouTube(page, URLS.watch, "watch");
@@ -35,15 +45,18 @@ test("popup review card: only after 10 distinct days, and never again once dismi
   await expect(popup.locator("#groups .row").first()).toBeVisible();
   await expect(popup.locator("#review-card")).toHaveCount(0);
 
-  await worker.evaluate(() => chrome.storage.local.set({ "act:2026-01-10": 1 }));
+  // The 10th distinct day is reported the way a YouTube tab reports it: via the service worker.
+  await popup.evaluate(() => chrome.runtime.sendMessage({ type: "activity", day: "2026-01-10" }));
+  expect((await worker.evaluate(() => chrome.storage.local.get(null)))).toMatchObject({ review: { eligible: true } });
+  expect(Object.keys(await worker.evaluate(() => chrome.storage.local.get(null))).filter((k) => k.startsWith("act:"))).toEqual([]); // counters dropped
   await popup.reload();
   await expect(popup.locator("#review-card")).toBeVisible();
-  await expect(popup.locator("#review-card a")).toHaveAttribute("href", /chromewebstore\.google\.com\/detail\/.+\/reviews/);
+  await expect(popup.locator("#review-card a")).toHaveAttribute("href", `https://chromewebstore.google.com/detail/${extensionId}/reviews`);
   await shot(popup, "popup-review");
   await popup.getByRole("button", { name: "Dismiss" }).click();
   await expect(popup.locator("#review-card")).toHaveCount(0);
 
-  await worker.evaluate(() => chrome.storage.local.set({ "act:2026-02-01": 1, "act:2026-02-02": 1 }));
+  await popup.evaluate(() => chrome.runtime.sendMessage({ type: "activity", day: "2026-02-01" }));
   await popup.reload();
   await expect(popup.locator("#groups .row").first()).toBeVisible();
   await expect(popup.locator("#review-card")).toHaveCount(0);
@@ -64,6 +77,9 @@ test("options page: toggles, allow list, shortcut, diagnostics, about", async ({
   await opts.locator("#allow-input").fill("https://www.youtube.com/@LinusTechTips/videos");
   await opts.getByRole("button", { name: "Add" }).click();
   await expect(opts.locator("#allow-list .chip")).toHaveText(["@linustechtips×"]);
+  await opts.locator("#allow-input").fill("https://www.youtube.com/watch?v=jNQXAC9IVRw"); // a video URL is not a channel
+  await opts.getByRole("button", { name: "Add" }).click();
+  await expect(opts.locator("#allow-error")).not.toBeEmpty();
   await opts.locator("#allow-input").fill("<img src=x onerror=alert(1)>");
   await opts.getByRole("button", { name: "Add" }).click();
   await expect(opts.locator("#allow-error")).not.toBeEmpty();
@@ -79,12 +95,14 @@ test("options page: toggles, allow list, shortcut, diagnostics, about", async ({
   await opts.locator('label[for="t-watch-comments"]').click();
   await expect(popup.locator('input[data-id="watch-comments"]')).toBeChecked();
 
-  // diagnostics copy
+  // diagnostics copy + clear (clear goes through the service worker queue)
   await worker.evaluate(() => chrome.storage.local.set({ diagnostics: [{ kind: "broken", ruleId: "shorts-search", build: "2.2026", page: "search", at: "2026-10-23T00:00:00Z", count: 1 }] }));
   await expect(opts.locator("#d-log")).toContainText("shorts-search");
   await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: `chrome-extension://${extensionId}` }).catch(() => {});
   await opts.locator("#d-copy").click();
   await expect(opts.locator("#d-copied")).toHaveText(/Copied|Copy failed/);
+  await opts.locator("#d-clear").click();
+  await expect(opts.locator("#d-log")).toHaveText("Nothing recorded.");
 });
 
 test("light and dark themes both render with readable contrast", async ({ context, extensionId }) => {
@@ -105,6 +123,16 @@ test("light and dark themes both render with readable contrast", async ({ contex
       const [a, b] = [lum(bg), lum(fg)].sort((x, y) => y - x);
       expect((a + 0.05) / (b + 0.05), `${pageName} ${scheme}`).toBeGreaterThan(7);
       expect(lum(bg) < 0.1, `${pageName} ${scheme} background`).toBe(scheme === "dark");
+      // links/accents must meet WCAG AA (4.5:1) against the page background too
+      const accent = await p.evaluate(() => {
+        const probe = document.createElement("a"); // resolves the --accent token to an rgb() colour
+        document.body.append(probe);
+        const c = getComputedStyle(probe).color;
+        probe.remove();
+        return c;
+      });
+      const [c1, c2] = [lum(bg), lum(accent)].sort((x, y) => y - x);
+      expect((c1 + 0.05) / (c2 + 0.05), `${pageName} ${scheme} link contrast`).toBeGreaterThan(4.5);
     }
   }
 });

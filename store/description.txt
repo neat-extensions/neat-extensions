@@ -13,6 +13,6 @@ No account.
 Nothing leaves your browser.
 Open source.
 
-How it works: Neat hides page elements with a style sheet inside your browser. To keep working when YouTube changes its layout, it may download an updated list of hiding rules (a small JSON file containing only CSS selectors) once a day. That download sends no information about you, and the rules can only hide things — they cannot run code.
+How it works: Neat hides page elements with a style sheet inside your browser. Your settings never leave your device. To keep working when YouTube changes its layout, it downloads a signed list of hiding rules (a small JSON file of CSS selectors) — normally once a day, and never more than once an hour. That download carries no information about you, and the rules can only hide things: they cannot run code.
 
 Neat is not affiliated with or endorsed by YouTube or Google.

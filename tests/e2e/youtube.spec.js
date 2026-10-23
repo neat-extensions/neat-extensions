@@ -1,9 +1,8 @@
 // Live end-to-end checks against real https://www.youtube.com pages with the
 // unpacked extension loaded. Oracles are independent of rules.json: they look
 // for what a user would see (links to /shorts/, a "Shorts" tab, …).
-import { test, expect, URLS, RULES, openYouTube, warmUpHome, countVisible, countAttached, setSettings, allRulesOn, coversRules, shot } from "./helpers.js";
+import { test, expect, URLS, RULES, MARK, STYLE, ALLOWED_EXT_REQUESTS, openYouTube, warmUpHome, countVisible, countAttached, setSettings, allRulesOn, coversRules, shot } from "./helpers.js";
 
-const MARK = "data-neat-hide";
 
 /** Collect console errors and page errors that come from the extension, and every request it makes. */
 function watchExtension(context, page, extensionId) {
@@ -23,7 +22,7 @@ function watchExtension(context, page, extensionId) {
   // Requests from the extension's service worker. (Content scripts make none; the build's source scan enforces that.)
   context.on("request", (r) => {
     const sw = r.serviceWorker();
-    if (sw && fromExt(sw.url())) requests.push(r.url());
+    if (sw && fromExt(sw.url()) && !ALLOWED_EXT_REQUESTS.includes(r.url())) requests.push(r.url());
   });
   return { errors, requests };
 }
@@ -41,7 +40,8 @@ test.describe("default settings", () => {
     const ext = watchExtension(context, page, extensionId);
     await openYouTube(page, URLS.search, "search");
     await shot(page, "search");
-    await noteIfVacuous(page, 'ytd-search a[href^="/shorts/"]', "Shorts links on search");
+    // Not vacuous: YouTube must actually have served Shorts here for this check to mean anything.
+    expect(await noteIfVacuous(page, 'ytd-search a[href^="/shorts/"]', "Shorts links on search")).toBeGreaterThan(0);
     expect(await countVisible(page, 'ytd-search a[href^="/shorts/"]')).toBe(0);
     expect(await countVisible(page, "ytd-search ytm-shorts-lockup-view-model, ytd-search ytm-shorts-lockup-view-model-v2, ytd-search ytd-reel-shelf-renderer")).toBe(0);
     expect(await countVisible(page, "ytd-search ytd-video-renderer")).toBeGreaterThan(3);
@@ -71,7 +71,7 @@ test.describe("default settings", () => {
     const ext = watchExtension(context, page, extensionId);
     await openYouTube(page, URLS.channel, "channel");
     await shot(page, "channel");
-    await noteIfVacuous(page, 'ytd-browse[page-subtype="channels"] a[href^="/shorts/"]', "Shorts on channel home");
+    expect(await noteIfVacuous(page, 'ytd-browse[page-subtype="channels"] a[href^="/shorts/"]', "Shorts on channel home")).toBeGreaterThan(0);
     expect(await countAttached(page, "yt-tab-shape")).toBeGreaterThan(2);
     expect(await countVisible(page, "yt-tab-shape", { text: "Shorts" })).toBe(0);
     expect(await countVisible(page, "yt-tab-shape", { text: "Videos" })).toBe(1);
@@ -90,7 +90,7 @@ test.describe("default settings", () => {
     expect(await page.locator("ytd-comments#comments").evaluate((e) => getComputedStyle(e).display)).not.toBe("none");
     // Nothing on the page is marked or styled for OFF rules.
     const off = RULES.rules.filter((r) => !r.default).map((r) => r.id);
-    const { marks, css } = await page.evaluate((MARK) => ({ marks: [...document.querySelectorAll(`[${MARK}]`)].map((e) => e.getAttribute(MARK)).join(" "), css: document.querySelector("style[data-neat]").textContent }), MARK);
+    const { marks, css } = await page.evaluate(({ MARK, STYLE }) => ({ marks: [...document.querySelectorAll(`[${MARK}]`)].map((e) => e.getAttribute(MARK)).join(" "), css: document.querySelector(STYLE).textContent }), { MARK, STYLE });
     for (const id of off) {
       expect(marks.split(" ")).not.toContain(id);
       expect(css).not.toContain(`"${id}"`);
@@ -117,10 +117,12 @@ test.describe("default settings", () => {
     expect(navigations.filter((u) => u.includes("/shorts/")).length).toBeLessThanOrEqual(1);
     expect(navigations.filter((u) => u.includes("/watch")).length).toBe(1);
 
-    // In-app click on a Shorts link (SPA navigation) also lands on the watch page.
+    // In-app click on a Shorts link is intercepted before YouTube's Shorts player ever opens.
     await openYouTube(page, URLS.channelShorts, "channel", { scroll: false });
+    navigations.length = 0;
     await page.locator('a[href^="/shorts/"]').first().click();
     await page.waitForURL(/\/watch\?v=/, { timeout: 20_000 });
+    expect(navigations.filter((u) => u.includes("/shorts/")), "Shorts player never opened").toEqual([]);
     expect(ext.errors).toEqual([]);
     expect(ext.requests).toEqual([]);
   });
@@ -135,6 +137,26 @@ test.describe("default settings", () => {
     const broken = diagnostics.filter((d) => d.kind === "broken");
     test.info().annotations.push({ type: "diagnostics", description: JSON.stringify(diagnostics) });
     expect(broken).toEqual([]);
+  });
+});
+
+test.describe("self-check", () => {
+  test("detects markup drift live: stale locators + visible Shorts -> retried once, then recorded broken", async ({ page, worker }) => {
+    coversRules("shorts-search");
+    // Simulate YouTube renaming its markup: a (newer) rules file whose shorts-search locators match nothing.
+    await worker.evaluate((rules) => {
+      const d = structuredClone(rules);
+      d.version = "99.0.0";
+      d.rules.find((r) => r.id === "shorts-search").locators = [{ type: "css", selector: "ytd-search ytd-renamed-shorts-shelf" }];
+      return chrome.storage.local.set({ rules: d, diagnostics: [] });
+    }, RULES);
+    await openYouTube(page, URLS.search, "search");
+    expect(await countVisible(page, 'ytd-search a[href^="/shorts/"]'), "Shorts leak through the stale rule").toBeGreaterThan(0);
+    await expect
+      .poll(async () => ((await worker.evaluate(() => chrome.storage.local.get("diagnostics"))).diagnostics || []).filter((d) => d.kind === "broken").map((d) => d.ruleId), { timeout: 30_000 })
+      .toEqual(["shorts-search"]);
+    const [entry] = (await worker.evaluate(() => chrome.storage.local.get("diagnostics"))).diagnostics;
+    expect(entry).toMatchObject({ page: "search", build: expect.stringMatching(/^\d+\.\d{8}/) });
   });
 });
 
@@ -163,10 +185,12 @@ test.describe("every rule on", () => {
     coversRules("shorts-search");
     await openYouTube(page, URLS.search, "search");
     const attached = await countAttached(page, 'ytd-search a[href^="/shorts/"]');
+    expect(attached, "search served Shorts").toBeGreaterThan(0);
+    expect(await countVisible(page, 'ytd-search a[href^="/shorts/"]')).toBe(0);
     await setSettings(worker, { enabled: false });
     await page.waitForTimeout(500);
-    expect(await page.evaluate(() => document.querySelector("style[data-neat]").textContent)).toBe("");
-    if (attached) expect(await countVisible(page, 'ytd-search a[href^="/shorts/"]')).toBeGreaterThan(0);
+    expect(await page.evaluate((s) => document.querySelector(s).textContent, STYLE)).toBe("");
+    expect(await countVisible(page, 'ytd-search a[href^="/shorts/"]')).toBeGreaterThan(0);
   });
 });
 
@@ -182,5 +206,14 @@ test.describe("allow list", () => {
     await setSettings(worker, { allowlist: [] }); // live, no reload
     await page.waitForTimeout(800);
     expect(await countVisible(page, "yt-tab-shape", { text: "Shorts" })).toBe(0);
+  });
+
+  test("a channel allowed by @handle is also exempt on its legacy /c/ URL (id learned from the channel page)", async ({ page, worker }) => {
+    coversRules("shorts-channel");
+    await setSettings(worker, { allowlist: ["@linustechtips"] });
+    await openYouTube(page, URLS.channel, "channel", { scroll: false }); // fresh load: learns UC id <-> @handle
+    await expect.poll(async () => (await worker.evaluate(() => chrome.storage.local.get("settings"))).settings.aliases, { timeout: 10_000 }).toEqual({ "UCXuqSBlHAE6Xw-yeJA0Tunw": "@linustechtips" });
+    await openYouTube(page, "https://www.youtube.com/c/LinusTechTips", "channel", { scroll: false });
+    expect(await countVisible(page, "yt-tab-shape", { text: "Shorts" })).toBe(1);
   });
 });

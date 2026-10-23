@@ -2,11 +2,7 @@ import { startOptions } from "../../../packages/engine/ui/options.js";
 import site from "../site.config.js";
 import bundledRules from "../rules/rules.json";
 
-// Placeholder list until sibling products exist.
-const moreProducts = [
-  { name: "Reddit", blurb: "coming soon" },
-  { name: "LinkedIn", blurb: "coming soon" },
-  { name: "X", blurb: "coming soon" },
-];
+// Placeholder until sibling products exist. Deliberately names no other company or site.
+const moreProducts = [{ name: "More tools", blurb: "in the works — small, private, one job each." }];
 
 startOptions({ site, bundledRules, moreProducts });

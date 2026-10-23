@@ -1,6 +1,14 @@
 import { test, expect } from "@playwright/test";
 import { createUpdater, MIN_REFETCH_MS } from "../../packages/engine/src/updater.js";
 import { pickRules } from "../../packages/engine/src/settings.js";
+import { generateKeyPair, signBytes } from "../../scripts/rules-key.mjs";
+
+let KEYS_;
+let OTHER;
+test.beforeAll(async () => {
+  KEYS_ = await generateKeyPair();
+  OTHER = await generateKeyPair();
+});
 
 const URL_OK = "https://rules.example.com/neat-youtube/rules.json";
 const doc = (version, extra = {}) => ({
@@ -25,18 +33,32 @@ function fakeStorage(initial = {}) {
     },
   };
 }
-function fakeFetch(body, { status = 200 } = {}) {
+/**
+ * Fake rules host. `body` is the rules (object/string/Error); the .sig is made
+ * with `signer` (default: the trusted key) unless `sig` overrides it.
+ */
+function fakeFetch(body, { status = 200, signer, sig, headers = {} } = {}) {
   const calls = [];
   const fn = async (url, init) => {
     calls.push({ url, init });
     if (body instanceof Error) throw body;
-    return { ok: status >= 200 && status < 300, status, text: async () => (typeof body === "string" ? body : JSON.stringify(body)) };
+    const text = typeof body === "string" ? body : JSON.stringify(body);
+    const bytes = new TextEncoder().encode(text);
+    let out = bytes;
+    if (url.endsWith(".sig")) out = new TextEncoder().encode(sig ?? (await signBytes((signer || KEYS_).privateJwk, bytes)));
+    return {
+      ok: status >= 200 && status < 300,
+      status,
+      headers: { get: (h) => headers[h.toLowerCase()] ?? null },
+      arrayBuffer: async () => out.buffer.slice(out.byteOffset, out.byteOffset + out.byteLength),
+    };
   };
   fn.calls = calls;
+  fn.rulesCalls = () => calls.filter((c) => !c.url.endsWith(".sig"));
   return fn;
 }
-const make = (fetchImpl, storage = fakeStorage(), rulesUrl = URL_OK, now = () => 1_000_000_000) =>
-  ({ storage, u: createUpdater({ site: "youtube", bundled, rulesUrl, storage, fetchImpl, now }) });
+const make = (fetchImpl, storage = fakeStorage(), rulesUrl = URL_OK, now = () => 1_000_000_000, publicKey = KEYS_.publicJwk) =>
+  ({ storage, u: createUpdater({ site: "youtube", bundled, rulesUrl, publicKey, storage, fetchImpl, now }) });
 
 test.describe("remote rules updater", () => {
   test("stores a newer valid rules file", async () => {
@@ -44,8 +66,9 @@ test.describe("remote rules updater", () => {
     const { u, storage } = make(f);
     expect((await u.refresh("install")).updated).toBe(true);
     expect(storage.data.rules.version).toBe("1.1.0");
-    expect(f.calls[0].url).toBe(URL_OK);
+    expect(f.calls.map((c) => c.url).sort()).toEqual([URL_OK, `${URL_OK}.sig`]);
     expect(f.calls[0].init.credentials).toBe("omit");
+    expect(f.calls[0].init.redirect).toBe("error");
   });
 
   test("ignores same or older versions", async () => {
@@ -91,6 +114,43 @@ test.describe("remote rules updater", () => {
     }
   });
 
+  test.describe("signature", () => {
+    for (const [name, opts] of [
+      ["missing/garbage signature", { sig: "not-a-signature" }],
+      ["signed by another key", { signer: "OTHER" }],
+      ["empty signature", { sig: "" }],
+    ]) {
+      test(`rejects ${name} and keeps the last good rules`, async () => {
+        const storage = fakeStorage({ rules: doc("1.1.0") });
+        const f = fakeFetch(doc("2.0.0"), { ...opts, signer: opts.signer === "OTHER" ? OTHER : undefined });
+        const { u } = make(f, storage);
+        const r = await u.refresh("install");
+        expect(r.updated).toBe(false);
+        expect(r.status).toMatch(/rejected: signature/);
+        expect(storage.data.rules.version).toBe("1.1.0");
+      });
+    }
+    test("rejects a body altered after signing", async () => {
+      const good = JSON.stringify(doc("2.0.0"));
+      const sig = await signBytes(KEYS_.privateJwk, new TextEncoder().encode(good));
+      const { u, storage } = make(fakeFetch(good.replace("div.x", "div.y"), { sig }));
+      expect((await u.refresh("install")).status).toMatch(/signature/);
+      expect(storage.data.rules).toBeUndefined();
+    });
+    test("no public key configured = remote rules off, nothing fetched", async () => {
+      const f = fakeFetch(doc("9.0.0"));
+      const { u } = make(f, fakeStorage(), URL_OK, undefined, null);
+      expect(u.configured).toBe(false);
+      await u.refresh("install");
+      expect(f.calls.length).toBe(0);
+    });
+    test("refuses oversized responses without reading them", async () => {
+      const { u, storage } = make(fakeFetch(doc("2.0.0"), { headers: { "content-length": String(10 * 1024 * 1024) } }));
+      expect((await u.refresh("install")).status).toMatch(/larger than/);
+      expect(storage.data.rules).toBeUndefined();
+    });
+  });
+
   test("throttles scheduled refreshes; a manual check bypasses the throttle", async () => {
     let t = 10_000_000;
     const f = fakeFetch(doc("1.0.0"));
@@ -101,14 +161,14 @@ test.describe("remote rules updater", () => {
     await u.refresh("manual");
     t += MIN_REFETCH_MS + 1;
     await u.refresh("alarm");
-    expect(f.calls.length).toBe(3);
+    expect(f.rulesCalls().length).toBe(3);
   });
 
   test("coalesces concurrent refreshes into one request", async () => {
     const f = fakeFetch(doc("1.2.0"));
     const { u } = make(f);
     await Promise.all([u.refresh("install"), u.refresh("recheck"), u.refresh("recheck")]);
-    expect(f.calls.length).toBe(1);
+    expect(f.rulesCalls().length).toBe(1);
   });
 
   test("pickRules prefers newer valid stored rules, else bundled", () => {
@@ -117,5 +177,14 @@ test.describe("remote rules updater", () => {
     expect(pickRules(bundled, { ...doc("9.0.0"), x: 1 }, "youtube").source).toBe("bundled");
     expect(pickRules(bundled, { ...doc("9.0.0"), site: "reddit" }, "youtube").source).toBe("bundled");
     expect(pickRules(bundled, null, "youtube").source).toBe("bundled");
+  });
+
+  test("remote rules cannot relabel a shipped rule or flip its default; new rules keep theirs", () => {
+    const remote = doc("1.5.0");
+    remote.rules[0] = { ...remote.rules[0], label: "Totally harmless", default: false, group: "Other" };
+    remote.rules.push({ id: "new-one", label: "New", default: true, group: "G", locators: [{ type: "css", selector: "div.n" }] });
+    const picked = pickRules(bundled, remote, "youtube").doc.rules;
+    expect(picked[0]).toMatchObject({ id: "a", label: "A", default: true, group: "G" });
+    expect(picked[1]).toMatchObject({ id: "new-one", label: "New", default: true });
   });
 });

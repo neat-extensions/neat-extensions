@@ -1,15 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#34d3a3"/>
-      <stop offset="1" stop-color="#0b7d5e"/>
+      <stop offset="0" stop-color="#2fc697"/>
+      <stop offset="1" stop-color="#086e52"/>
     </linearGradient>
   </defs>
   <!-- squircle tile -->
   <rect x="4" y="4" width="120" height="120" rx="30" fill="url(#g)"/>
-  <!-- a wide 16:9 video frame: the thing Neat keeps -->
-  <rect x="22" y="38" width="84" height="52" rx="12" fill="#ffffff"/>
-  <path d="M57 51.5 L77 64 L57 76.5 Z" fill="#0b7d5e" stroke="#0b7d5e" stroke-width="4" stroke-linejoin="round"/>
-  <!-- sparkle: tidy -->
-  <path d="M100 14 C101.5 22 104 24.5 112 26 C104 27.5 101.5 30 100 38 C98.5 30 96 27.5 88 26 C96 24.5 98.5 22 100 14 Z" fill="#e9fff7"/>
+  <!-- a tidy feed: two wide rows (videos kept), neatly stacked -->
+  <rect x="24" y="44" width="62" height="18" rx="9" fill="#ffffff"/>
+  <rect x="24" y="72" width="80" height="18" rx="9" fill="#ffffff" fill-opacity="0.82"/>
+  <!-- sparkle: just tidied -->
+  <path d="M98 20 C99.6 29 102.5 31.9 111.5 33.5 C102.5 35.1 99.6 38 98 47 C96.4 38 93.5 35.1 84.5 33.5 C93.5 31.9 96.4 29 98 20 Z" fill="#ffffff"/>
 </svg>

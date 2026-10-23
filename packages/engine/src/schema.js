@@ -9,7 +9,11 @@ export const LIMITS = {
   maxLocators: 3,
   maxSelector: 500,
   maxText: 80,
+  maxHas: 3,
 };
+
+// A rule may never target the page itself or everything at once.
+const ROOT_TARGET = /^(?:html|head|body|ytd-app)(?![\w-])/i;
 
 const TOP_KEYS = ["version", "site", "minEngineVersion", "rules"];
 const RULE_KEYS = ["id", "label", "default", "group", "locators"];
@@ -28,7 +32,6 @@ const CSS_FORBIDDEN_FUNCS = /\b(?:url|image-set|image|expression|element|attr|en
 // Strings that look like script, wherever they appear.
 const CODE_LIKE = [
   /javascript\s*:/i,
-  /data\s*:/i,
   /vbscript\s*:/i,
   /<\s*\/?\s*script/i,
   /=>/,
@@ -38,7 +41,7 @@ const CODE_LIKE = [
   /\bnew\s+Function\b/i,
   /\bimport\s*\(/i,
   /\brequire\s*\(/i,
-  /\b(?:document|window|globalThis|chrome|self)\s*\./i,
+  /\b(?:document|window|globalThis|chrome)\.[a-z_$]/i,
   /\b(?:setTimeout|setInterval|fetch|XMLHttpRequest)\b/i,
   /\bon[a-z]+\s*=/i,
 ];
@@ -93,7 +96,55 @@ export function checkSelector(v, where, errors) {
   if (CSS_FORBIDDEN.test(v)) return errors.push(`${where}: selector contains a forbidden character`);
   if (CSS_FORBIDDEN_FUNCS.test(v)) return errors.push(`${where}: selector uses a forbidden function`);
   if (looksLikeCode(v)) return errors.push(`${where}: selector looks like code`);
-  if (!balanced(v)) errors.push(`${where}: selector has unbalanced brackets or quotes`);
+  if (!balanced(v)) return errors.push(`${where}: selector has unbalanced brackets or quotes`);
+  if ((v.match(/:has\(/g) || []).length > LIMITS.maxHas) return errors.push(`${where}: more than ${LIMITS.maxHas} :has() (too expensive)`);
+  for (const complex of splitTopLevel(v, ",")) {
+    const last = lastCompound(complex);
+    if (!/^[a-z.#[]/i.test(last) || ROOT_TARGET.test(last)) {
+      return errors.push(`${where}: selector "${complex.trim()}" targets the whole page or everything (must end in a specific element, class, id or attribute)`);
+    }
+  }
+}
+
+/** Split on `sep` outside brackets, parentheses and quotes. */
+function splitTopLevel(s, sep) {
+  const out = [];
+  let depth = 0;
+  let quote = null;
+  let cur = "";
+  for (const ch of s) {
+    if (quote) {
+      if (ch === quote) quote = null;
+    } else if (ch === '"' || ch === "'") quote = ch;
+    else if (ch === "(" || ch === "[") depth++;
+    else if (ch === ")" || ch === "]") depth--;
+    else if (ch === sep && depth === 0) {
+      out.push(cur);
+      cur = "";
+      continue;
+    }
+    cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
+
+/** The compound selector after the last top-level combinator: what the rule actually hides. */
+function lastCompound(complex) {
+  let depth = 0;
+  let quote = null;
+  let start = 0;
+  const t = complex.trim();
+  for (let i = 0; i < t.length; i++) {
+    const ch = t[i];
+    if (quote) {
+      if (ch === quote) quote = null;
+    } else if (ch === '"' || ch === "'") quote = ch;
+    else if (ch === "(" || ch === "[") depth++;
+    else if (ch === ")" || ch === "]") depth--;
+    else if (depth === 0 && /[\s>+~]/.test(ch)) start = i + 1;
+  }
+  return t.slice(start).trim();
 }
 
 function checkLocator(loc, where, errors) {

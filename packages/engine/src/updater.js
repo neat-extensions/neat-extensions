@@ -1,20 +1,24 @@
-// Remote rules updater. Fetches ONE configured https URL, validates strictly,
-// accepts only a newer version for the same site, and otherwise keeps the
-// last good rules. Written against injected fetch/storage so it is unit-testable.
-import { parseRulesText, validateRulesUrl, isPlaceholderUrl } from "./schema.js";
+// Remote rules updater. Fetches ONE configured https URL (plus its detached
+// signature at URL + ".sig"), verifies the signature with the shipped public key,
+// validates strictly, accepts only a newer version for the same site, and
+// otherwise keeps the last good rules. Written against injected fetch/storage
+// so it is unit-testable.
+import { parseRulesText, validateRulesUrl, isPlaceholderUrl, LIMITS } from "./schema.js";
+import { verifyRules, isPublicJwk } from "./signature.js";
 import { compareVersions } from "./version.js";
 import { KEYS, pickRules } from "./settings.js";
 
 export const MIN_REFETCH_MS = 60 * 60 * 1000; // scheduled/startup refresh: at most hourly
-export const MIN_RECHECK_MS = 10 * 60 * 1000; // broken-rule recheck: at most every 10 minutes
+export const MIN_RECHECK_MS = 60 * 60 * 1000; // broken-rule recheck: also at most hourly (as the listing promises)
 
 /**
- * @param {{site: string, bundled: object, rulesUrl: string,
+ * @param {{site: string, bundled: object, rulesUrl: string, publicKey: object|null,
  *          storage: {get: Function, set: Function}, fetchImpl: Function, now?: () => number}} deps
  */
-export function createUpdater({ site, bundled, rulesUrl, storage, fetchImpl, now = Date.now }) {
+export function createUpdater({ site, bundled, rulesUrl, publicKey, storage, fetchImpl, now = Date.now }) {
   const urlCheck = validateRulesUrl(rulesUrl);
-  const configured = urlCheck.ok && !isPlaceholderUrl(rulesUrl);
+  const hasKey = isPublicJwk(publicKey);
+  const configured = urlCheck.ok && !isPlaceholderUrl(rulesUrl) && hasKey;
   let inflight = null;
 
   async function writeMeta(patch) {
@@ -25,7 +29,8 @@ export function createUpdater({ site, bundled, rulesUrl, storage, fetchImpl, now
   async function run(reason) {
     const t = now();
     if (!configured) {
-      await writeMeta({ status: urlCheck.ok ? "not-configured" : `invalid-url: ${urlCheck.error}`, lastAttempt: t });
+      const why = !urlCheck.ok ? `invalid-url: ${urlCheck.error}` : !hasKey ? "not-configured (no signing key)" : "not-configured";
+      await writeMeta({ status: why, lastAttempt: t });
       return { updated: false, status: "not-configured" };
     }
     const got = await storage.get([KEYS.rules, KEYS.rulesMeta]);
@@ -38,16 +43,13 @@ export function createUpdater({ site, bundled, rulesUrl, storage, fetchImpl, now
 
     let status;
     try {
-      const res = await fetchImpl(urlCheck.url.href, {
-        method: "GET",
-        credentials: "omit",
-        cache: "no-cache",
-        redirect: "error",
-        referrerPolicy: "no-referrer",
-        signal: AbortSignal.timeout(15000),
-      });
-      if (!res.ok) throw new Error(`http ${res.status}`);
-      const text = await res.text();
+      const init = { method: "GET", credentials: "omit", cache: "no-cache", redirect: "error", referrerPolicy: "no-referrer", signal: AbortSignal.timeout(15000) };
+      const [body, sig] = await Promise.all([
+        fetchCapped(fetchImpl, urlCheck.url.href, init, LIMITS.maxBytes),
+        fetchCapped(fetchImpl, `${urlCheck.url.href}.sig`, init, 512),
+      ]);
+      if (!(await verifyRules(publicKey, body, new TextDecoder().decode(sig)))) throw new Error("signature does not verify");
+      const text = new TextDecoder("utf-8", { fatal: true }).decode(body);
       const parsed = parseRulesText(text, { site });
       if (!parsed.ok) {
         status = `rejected: ${parsed.errors.slice(0, 3).join("; ")}`;
@@ -59,7 +61,8 @@ export function createUpdater({ site, bundled, rulesUrl, storage, fetchImpl, now
         return { updated: true, status: "updated", version: parsed.doc.version };
       }
     } catch (e) {
-      status = `fetch failed: ${String(e && e.message ? e.message : e).slice(0, 120)}`;
+      const msg = String(e && e.message ? e.message : e).slice(0, 120);
+      status = /signature|larger than/.test(msg) ? `rejected: ${msg}` : `fetch failed: ${msg}`;
     }
     await writeMeta({ status, lastAttempt: t });
     return { updated: false, status };
@@ -73,4 +76,37 @@ export function createUpdater({ site, bundled, rulesUrl, storage, fetchImpl, now
       return inflight;
     },
   };
+}
+
+/** GET a resource and read at most `max` bytes; anything bigger is refused, not truncated. */
+async function fetchCapped(fetchImpl, url, init, max) {
+  const res = await fetchImpl(url, init);
+  if (!res.ok) throw new Error(`http ${res.status} for ${url.endsWith(".sig") ? "signature" : "rules"}`);
+  const declared = Number(res.headers && res.headers.get && res.headers.get("content-length"));
+  if (declared > max) throw new Error(`response larger than ${max} bytes`);
+  if (res.body && res.body.getReader) {
+    const reader = res.body.getReader();
+    const chunks = [];
+    let total = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > max) {
+        reader.cancel().catch(() => {});
+        throw new Error(`response larger than ${max} bytes`);
+      }
+      chunks.push(value);
+    }
+    const out = new Uint8Array(total);
+    let off = 0;
+    for (const c of chunks) {
+      out.set(c, off);
+      off += c.byteLength;
+    }
+    return out;
+  }
+  const buf = new Uint8Array(await res.arrayBuffer());
+  if (buf.byteLength > max) throw new Error(`response larger than ${max} bytes`);
+  return buf;
 }

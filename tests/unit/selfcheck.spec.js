@@ -31,9 +31,9 @@ const ATTR = "data-test-hide";
 const rule = (id, ...locators) => ({ id, label: id, default: true, group: "G", locators });
 
 /** Apply rules the way the content script does (stylesheet + marks), then self-check. */
-async function applyAndCheck(page, rules, { applyStyles = true } = {}) {
+async function applyAndCheck(page, rules, { applyStyles = true, probes = {} } = {}) {
   return page.evaluate(
-    ({ rules, ATTR, applyStyles }) => {
+    ({ rules, ATTR, applyStyles, probes }) => {
       const E = window.Engine;
       const enabled = new Set(rules.map((r) => r.id));
       if (applyStyles) {
@@ -42,9 +42,9 @@ async function applyAndCheck(page, rules, { applyStyles = true } = {}) {
         document.documentElement.append(style);
         for (const r of rules) for (const loc of r.locators) if (loc.type !== "css") for (const el of E.findTargets(document, loc)) E.mark(el, ATTR, r.id);
       }
-      return E.selfCheck(document, rules, enabled);
+      return E.selfCheck(document, rules, enabled, { probes });
     },
-    { rules, ATTR, applyStyles },
+    { rules, ATTR, applyStyles, probes },
   );
 }
 
@@ -53,6 +53,51 @@ test("a working rule hides every target: not broken", async ({ page }) => {
   expect(r).toMatchObject({ id: "shorts", matched: 1, visible: 0, broken: false, degraded: false });
   await expect(page.locator("#shorts-shelf")).toBeHidden();
   await expect(page.locator("#video-shelf")).toBeVisible();
+});
+
+test("markup drift: locators match nothing but the independent probe still sees Shorts -> broken", async ({ page }) => {
+  const probes = { shorts: [{ selector: "#feed a[href^='/shorts/']" }] };
+  const [r] = await applyAndCheck(page, [rule("shorts", { type: "css", selector: "ytd-renamed-shelf" })], { probes });
+  expect(r).toMatchObject({ matched: 0, probed: 2, broken: true });
+});
+
+test("probe targets inside hidden containers are not visible -> not broken", async ({ page }) => {
+  const probes = { grid: [{ selector: "#grid a[href^='/shorts/']" }] };
+  const [r] = await applyAndCheck(page, [rule("grid", { type: "structural", anchor: "#grid a[href^='/shorts/']", container: "li.item" })], { probes });
+  expect(r).toMatchObject({ probed: 1, visible: 0, broken: false });
+});
+
+test("probe text filter: only an exact label counts", async ({ page }) => {
+  const probes = { t: [{ selector: "h2.title", text: "Shorts" }] };
+  const [r] = await applyAndCheck(page, [rule("t", { type: "css", selector: "section.shelf:has(a[href^='/shorts/'])" })], { probes });
+  expect(r).toMatchObject({ probed: 1, visible: 0, broken: false }); // the "Shorts" title is inside the hidden shelf
+});
+
+test("recycled node: a marked container that no longer matches is detected and unmarked", async ({ page }) => {
+  const out = await page.evaluate((ATTR) => {
+    const E = window.Engine;
+    const loc = { type: "text", container: "section.shelf", label: "h2.title", match: "Shorts" };
+    const shelf = document.querySelector("#shorts-shelf");
+    for (const el of E.findTargets(document, loc)) E.mark(el, ATTR, "shorts");
+    const before = shelf.getAttribute(ATTR);
+    shelf.querySelector("h2").textContent = "Trending"; // the site reuses the node for other content
+    const still = E.isTarget(shelf, loc);
+    const changed = E.unmark(shelf, ATTR, "shorts");
+    return { before, still, changed, after: shelf.getAttribute(ATTR) };
+  }, ATTR);
+  expect(out).toEqual({ before: "shorts", still: false, changed: true, after: null });
+});
+
+test("unmark keeps other rules' tokens", async ({ page }) => {
+  const v = await page.evaluate((ATTR) => {
+    const E = window.Engine;
+    const el = document.querySelector("#video-shelf");
+    E.mark(el, ATTR, "a");
+    E.mark(el, ATTR, "b");
+    E.unmark(el, ATTR, "a");
+    return el.getAttribute(ATTR);
+  }, ATTR);
+  expect(v).toBe("b");
 });
 
 test("targets that stay visible are reported broken", async ({ page }) => {

@@ -50,6 +50,7 @@ await writeFile(
       dataUsage: "Collects no user data.",
       screenshots: ["screenshots/1-before-after.png", "screenshots/2-popup.png", "screenshots/3-options.png"],
       promoTile: "promo-small-440x280.png",
+      marquee: "marquee-1400x560.png",
       privacyPolicy: "privacy.html",
     },
     null,
@@ -82,8 +83,8 @@ const privacy = `<!doctype html>
 <p><strong>${esc(site.productName)} does not collect, store, sell or share any personal data.</strong> It has no account, no analytics, no advertising and no tracking.</p>
 <h2>What stays on your device</h2>
 <p>Your settings (which items are hidden, the master switch, your allowed-channels list), the current hiding rules, a short self-check log, and a count of the days you used the extension (used once, to decide whether to show a single “leave a review” card) are kept in your browser's local extension storage. They never leave your device. Uninstalling the extension deletes them.</p>
-<h2>The one network request</h2>
-<p>So it keeps working when YouTube changes its layout, the extension may download an updated rules file (a small JSON list of CSS selectors) from a single fixed HTTPS address, at most about once a day. This request contains no information about you, your browsing or your settings: no cookies, no identifiers and no browsing history are sent. Like any web request, the server that hosts the file can see the IP address the request came from; we do not log or use it. The downloaded rules are checked strictly and can only hide page elements — they cannot run code.</p>
+<h2>The one kind of network request</h2>
+<p>So it keeps working when YouTube changes its layout, the extension downloads an updated rules file (a small JSON list of CSS selectors, plus its digital signature) from one fixed HTTPS address: when it is installed or updated, when the browser starts, and once a day — never more than once an hour automatically (you can also check by hand from Options). These requests contain no information about you, your browsing or your settings: no cookies, no identifiers, no history. Like any web request, the server that hosts the file can see the IP address the request came from; we do not log or use it. A rules file is used only if its signature matches the key built into the extension and it passes strict checks; rules can only hide page elements — they cannot run code.</p>
 <h2>Permissions</h2>
 <ul>
 <li><strong>Read and change your data on www.youtube.com</strong> — to hide the parts of YouTube you chose. The extension does not read or record what you watch, and runs on no other site.</li>
@@ -92,7 +93,7 @@ const privacy = `<!doctype html>
 </ul>
 <h2>Children</h2><p>The extension collects no data from anyone, including children.</p>
 <h2>Changes</h2><p>If this policy ever changes, the new version will be published at this address before the change takes effect.</p>
-<h2>Contact</h2><p>Questions: open an issue in the project's public source repository (link to be added).</p>
+<h2>Contact</h2><p>Questions: ${listing.sourceUrl ? `open an issue at <a href="${esc(listing.sourceUrl)}">${esc(listing.sourceUrl)}</a>` : "open an issue in the project's public source repository (link added at publication)"}.</p>
 <p class="muted">${esc(BRAND)} is not affiliated with or endorsed by YouTube or Google.</p>
 </main></body></html>
 `;
@@ -112,6 +113,7 @@ const landing = `<!doctype html>
 <p>Install <strong>${esc(site.productName)}</strong>, a free Chrome extension. ${esc(listing.firstLine)} No settings to learn: Shorts disappear from Home, search, subscriptions, channel pages and the sidebar, and any Shorts link opens as a normal video.</p>
 <p><a class="btn" href="${INSTALL_URL}" id="install">Add to Chrome — it's free</a></p>
 <ul class="trust">${TRUST_LINES.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
+${listing.sourceUrl ? `<p><a href="${esc(listing.sourceUrl)}">Source code</a></p>` : ""}
 <div class="ba">
   <figure><figcaption>Before</figcaption><img src="before.png" alt="YouTube Home with a Shorts shelf and Shorts in the sidebar"></figure>
   <figure><figcaption>After</figcaption><img src="after.png" alt="The same YouTube Home with Shorts removed"></figure>
@@ -138,6 +140,8 @@ const EXT = path.join(ROOT, "dist-store", siteName);
 execFileSync(process.execPath, [path.join(ROOT, "scripts", "build.mjs"), siteName, "--skip-tests", "--out", "dist-store"], { cwd: ROOT, stdio: "inherit" });
 const { launch, openYouTube, warmUpHome, extensionWorker } = await import("../tests/e2e/helpers.js");
 
+// Both shots use the same scroll position: where the first Shorts shelf sits in the "before" feed.
+let shelfY = 0;
 async function homeShot(withExtension) {
   const ctx = await launch({ extension: withExtension, extDir: EXT, viewport: { width: 1280, height: 800 } });
   try {
@@ -145,7 +149,13 @@ async function homeShot(withExtension) {
     await page.emulateMedia({ colorScheme: "light" });
     await warmUpHome(page);
     await openYouTube(page, site.id === "youtube" ? "https://www.youtube.com/" : "", "home");
-    await page.evaluate(() => window.scrollTo(0, 0));
+    if (!withExtension) {
+      shelfY = await page.evaluate(() => {
+        const shelf = [...document.querySelectorAll('ytd-browse[page-subtype="home"] ytd-rich-section-renderer')].find((s) => s.querySelector('a[href^="/shorts/"]'));
+        return shelf ? Math.max(0, shelf.getBoundingClientRect().top + window.scrollY - 330) : 0;
+      });
+    }
+    await page.evaluate((y) => window.scrollTo(0, y), shelfY);
     await page.waitForTimeout(1500);
     return await page.screenshot();
   } finally {
@@ -189,11 +199,13 @@ const p = ctx.pages()[0] || (await ctx.newPage());
 await p.emulateMedia({ colorScheme: "light" });
 await p.setViewportSize({ width: 340, height: 800 });
 await p.goto(`chrome-extension://${id}/popup.html`);
-await p.locator("#groups .row").first().waitFor();
+await p.locator("body.ready").waitFor();
+await p.waitForTimeout(400);
 const popupShot = await p.locator("body").screenshot({ scale: "device" });
 await p.setViewportSize({ width: 1280, height: 800 });
 await p.goto(`chrome-extension://${id}/options.html`);
-await p.locator("#groups .row").first().waitFor();
+await p.locator("body.ready").waitFor();
+await p.waitForTimeout(400);
 await p.screenshot({ path: path.join(SHOTS, "3-options.png"), scale: "css" });
 await ctx.close();
 
@@ -217,6 +229,13 @@ await tile.setContent(`<html><head><style>${frameCss}body{width:440px;height:280
 <body><div class="brand"><img src="${dataUrl(icon)}">${esc(BRAND)}</div><p>${esc(listing.firstLine)}</p></body></html>`);
 await tile.waitForFunction(() => [...document.images].every((i) => i.complete));
 await tile.screenshot({ path: path.join(OUT, "promo-small-440x280.png") });
+// Marquee 1400x560 (needed to be considered for featuring)
+const marquee = await browser.newPage({ viewport: { width: 1400, height: 560 } });
+await marquee.setContent(`<html><head><style>${frameCss}body{width:1400px;height:560px;display:grid;grid-template-columns:520px 1fr;align-items:center;gap:40px;padding:0 70px}
+.brand img{width:72px;height:72px}.brand{font-size:40px}h1{font-size:48px;margin-top:18px}.shot{width:100%;border-radius:14px;box-shadow:0 18px 50px rgba(0,40,30,.25)}</style></head>
+<body><div><div class="brand"><img src="${dataUrl(icon)}">${esc(BRAND)}</div><h1>${esc(listing.firstLine)}</h1></div><img class="shot" src="${dataUrl(after)}"></body></html>`);
+await marquee.waitForFunction(() => [...document.images].every((i) => i.complete));
+await marquee.screenshot({ path: path.join(OUT, "marquee-1400x560.png") });
 await browser.close();
 await rm(path.join(ROOT, "dist-store"), { recursive: true, force: true });
 console.log(`store kit written to ${path.relative(ROOT, OUT)}`);

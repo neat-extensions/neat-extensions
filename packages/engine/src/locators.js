@@ -65,6 +65,23 @@ export function findTargets(root, loc) {
   return [...found];
 }
 
+function matchesSafe(el, selector) {
+  try {
+    return el.matches(selector);
+  } catch {
+    return false;
+  }
+}
+
+/** Does `el` (still) qualify as a target of this locator? Used to drop stale marks. */
+export function isTarget(el, loc) {
+  if (loc.type === "css") return matchesSafe(el, loc.selector);
+  if (!matchesSafe(el, loc.container)) return false;
+  if (loc.type === "text") return textMatches(el, loc);
+  if (loc.type === "structural") return qsaIncl(el, loc.anchor).some((a) => closestSafe(a, loc.container) === el);
+  return false;
+}
+
 /** True if a selector parses in this browser. */
 export function selectorIsValid(doc, selector) {
   try {
@@ -89,7 +106,18 @@ export function mark(el, attr, id) {
   return true;
 }
 
-/** Remove every marker attribute (used on teardown). */
+/** Remove `id` from the marker attribute. Returns true if it changed. */
+export function unmark(el, attr, id) {
+  const cur = el.getAttribute(attr);
+  if (cur === null) return false;
+  const tokens = cur.split(" ").filter((t) => t && t !== id);
+  if (tokens.length === cur.split(" ").length) return false;
+  if (tokens.length) el.setAttribute(attr, tokens.join(" "));
+  else el.removeAttribute(attr);
+  return true;
+}
+
+/** Remove every marker attribute. */
 export function clearMarks(doc, attr) {
   for (const el of doc.querySelectorAll(`[${attr}]`)) el.removeAttribute(attr);
 }

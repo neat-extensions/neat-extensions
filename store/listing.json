@@ -3,7 +3,7 @@
   "titleLength": 26,
   "summary": "Hide YouTube Shorts everywhere — Home, search, subscriptions, channels, sidebar — and open Shorts links as normal videos.",
   "summaryLength": 121,
-  "description": "Shorts gone. YouTube back to videos.\n\n• Removes the Shorts shelf from Home, Subscriptions and search results.\n• Hides the Shorts tab and Shorts shelves on channel pages, and Shorts in the sidebar menu and notifications.\n• Opens any /shorts/ link as a normal video page, with a normal player and controls.\n• Optional: hide comments, end-screen suggestions, the recommended sidebar or the whole Home feed, and turn off autoplay.\n• One master switch and a keyboard shortcut (Alt+Shift+Y) to turn everything off and on.\n• Allow list: keep everything visible on the channels you choose.\n• Changes apply instantly — no page reload.\n• Light and dark mode. Tiny, fast, and idle when the page is idle.\n\nNo account.\nNothing leaves your browser.\nOpen source.\n\nHow it works: Neat hides page elements with a style sheet inside your browser. To keep working when YouTube changes its layout, it may download an updated list of hiding rules (a small JSON file containing only CSS selectors) once a day. That download sends no information about you, and the rules can only hide things — they cannot run code.\n\nNeat is not affiliated with or endorsed by YouTube or Google.",
+  "description": "Shorts gone. YouTube back to videos.\n\n• Removes the Shorts shelf from Home, Subscriptions and search results.\n• Hides the Shorts tab and Shorts shelves on channel pages, and Shorts in the sidebar menu and notifications.\n• Opens any /shorts/ link as a normal video page, with a normal player and controls.\n• Optional: hide comments, end-screen suggestions, the recommended sidebar or the whole Home feed, and turn off autoplay.\n• One master switch and a keyboard shortcut (Alt+Shift+Y) to turn everything off and on.\n• Allow list: keep everything visible on the channels you choose.\n• Changes apply instantly — no page reload.\n• Light and dark mode. Tiny, fast, and idle when the page is idle.\n\nNo account.\nNothing leaves your browser.\nOpen source.\n\nHow it works: Neat hides page elements with a style sheet inside your browser. Your settings never leave your device. To keep working when YouTube changes its layout, it downloads a signed list of hiding rules (a small JSON file of CSS selectors) — normally once a day, and never more than once an hour. That download carries no information about you, and the rules can only hide things: they cannot run code.\n\nNeat is not affiliated with or endorsed by YouTube or Google.",
   "category": "Productivity",
   "language": "English",
   "singlePurpose": "Hide YouTube Shorts and other distracting parts of YouTube that the user chooses.",
@@ -20,5 +20,6 @@
     "screenshots/3-options.png"
   ],
   "promoTile": "promo-small-440x280.png",
+  "marquee": "marquee-1400x560.png",
   "privacyPolicy": "privacy.html"
 }

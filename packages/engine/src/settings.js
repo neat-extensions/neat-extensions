@@ -4,7 +4,7 @@ import { validateRules } from "./schema.js";
 import { compareVersions } from "./version.js";
 
 export const KEYS = {
-  settings: "settings", // { enabled, toggles: {id: bool}, allowlist: [string] }
+  settings: "settings", // { enabled, toggles: {id: bool}, allowlist: [string], aliases: {UCid: "@handle"} }
   rules: "rules", // last good remote rules document
   rulesMeta: "rulesMeta", // { lastAttempt, lastSuccess, status, version }
   diagnostics: "diagnostics", // [{ kind, ruleId, build, page, at, count }]
@@ -21,7 +21,12 @@ export function normalizeSettings(raw) {
     for (const [k, v] of Object.entries(s.toggles)) if (typeof v === "boolean") toggles[k] = v;
   }
   const allowlist = Array.isArray(s.allowlist) ? s.allowlist.filter((x) => typeof x === "string").slice(0, 500) : [];
-  return { enabled: s.enabled !== false, toggles, allowlist };
+  // UC… id → @handle pairs learned on channel pages, so either form of an allowed channel matches.
+  const aliases = {};
+  if (s.aliases && typeof s.aliases === "object") {
+    for (const [k, v] of Object.entries(s.aliases)) if (typeof v === "string" && Object.keys(aliases).length < 500) aliases[k] = v;
+  }
+  return { enabled: s.enabled !== false, toggles, allowlist, aliases };
 }
 
 /** Effective on/off for a rule or feature: the user's choice, else its default. */
@@ -36,7 +41,11 @@ export function isOn(settings, item) {
  */
 export function pickRules(bundled, stored, site) {
   if (stored && validateRules(stored, { site }).ok && compareVersions(stored.version, bundled.version) > 0) {
-    return { doc: stored, source: "remote" };
+    // Remote rules may fix locators and add rules, but never re-label a shipped
+    // rule or flip its default: what users agreed to at install stays put.
+    const shipped = new Map(bundled.rules.map((r) => [r.id, r]));
+    const rules = stored.rules.map((r) => (shipped.has(r.id) ? { ...r, label: shipped.get(r.id).label, default: shipped.get(r.id).default, group: shipped.get(r.id).group } : r));
+    return { doc: { ...stored, rules }, source: "remote" };
   }
   return { doc: bundled, source: "bundled" };
 }

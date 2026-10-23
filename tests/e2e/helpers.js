@@ -4,6 +4,12 @@
 import { test as base, chromium, expect } from "@playwright/test";
 import path from "node:path";
 import { readFileSync, mkdirSync } from "node:fs";
+import { BRAND_SLUG } from "../../brand.config.js";
+
+export const MARK = `data-${BRAND_SLUG}-hide`;
+export const STYLE = `style[data-${BRAND_SLUG}]`;
+// Set by the canary when a real rules host exists; the extension may request exactly these.
+export const ALLOWED_EXT_REQUESTS = process.env.E2E_RULES_URL ? [process.env.E2E_RULES_URL, `${process.env.E2E_RULES_URL}.sig`] : [];
 
 export const ROOT = path.resolve(import.meta.dirname, "..", "..");
 export const EXT_DIR = path.join(ROOT, "dist-test", "youtube");

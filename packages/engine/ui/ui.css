@@ -6,7 +6,7 @@
   --text: #16181d;
   --muted: #5c6370;
   --border: #e1e4ea;
-  --accent: #0f9d76;
+  --accent: #087556; /* 5.7:1 on white, 5.1:1 on accent-soft (WCAG AA for text) */
   --accent-ink: #ffffff;
   --accent-soft: #e3f6ef;
   --danger: #c2410c;
@@ -42,7 +42,7 @@ button, input { font: inherit; color: inherit; }
 .small { font-size: 12px; }
 
 .group { margin-top: 14px; }
-.group h2 { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; font-weight: 600; }
+.group h2, .group h3 { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; font-weight: 600; }
 .list { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
 .row { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-top: 1px solid var(--border); cursor: pointer; }
 .row:first-child { border-top: 0; }
@@ -58,6 +58,17 @@ button, input { font: inherit; color: inherit; }
 .switch.big::after { width: 18px; height: 18px; }
 .switch.big:checked::after { transform: translateX(18px); }
 @media (prefers-reduced-motion: reduce) { .switch, .switch::after { transition: none; } }
+/* No animation on first paint: switches render in their stored state. */
+body:not(.ready) .switch, body:not(.ready) .switch::after { transition: none; }
+
+/* Windows High Contrast / forced colours: keep the switch state visible. */
+@media (forced-colors: active) {
+  .switch { border: 1px solid CanvasText; background: Canvas; forced-color-adjust: none; }
+  .switch::after { background: CanvasText; }
+  .switch:checked { background: Highlight; border-color: Highlight; }
+  .switch:checked::after { background: HighlightText; }
+  .btn.primary { border: 1px solid ButtonText; }
+}
 
 .btn { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
 .btn:hover { background: var(--surface-2); }

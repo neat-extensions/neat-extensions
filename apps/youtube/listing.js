@@ -22,7 +22,10 @@ export const benefits = [
 ];
 
 export const disclosure =
-  `How it works: ${BRAND} hides page elements with a style sheet inside your browser. To keep working when YouTube changes its layout, it may download an updated list of hiding rules (a small JSON file containing only CSS selectors) once a day. That download sends no information about you, and the rules can only hide things — they cannot run code.`;
+  `How it works: ${BRAND} hides page elements with a style sheet inside your browser. Your settings never leave your device. To keep working when YouTube changes its layout, it downloads a signed list of hiding rules (a small JSON file of CSS selectors) — normally once a day, and never more than once an hour. That download carries no information about you, and the rules can only hide things: they cannot run code.`;
+
+// Public source repository. Owner step: set this once the repo exists (README).
+export const sourceUrl = null;
 
 export const description = [firstLine, "", ...benefits.map((b) => `• ${b}`), "", ...TRUST_LINES, "", disclosure, "", `${BRAND} is not affiliated with or endorsed by YouTube or Google.`].join("\n");
 

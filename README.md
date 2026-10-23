@@ -23,13 +23,14 @@ packages/engine/           shared engine — knows nothing about any site
   src/locators.js          css / text / structural locators
   src/css.js               builds the single injected stylesheet
   src/selfcheck.js         "are the targets really hidden?" check
-  src/updater.js           remote rules fetch → validate → keep last good
+  src/updater.js           remote rules fetch → verify signature → validate → keep last good
+  src/signature.js         ECDSA P-256 verification of rules files (WebCrypto)
   src/settings.js          storage layout, defaults, rule picking
   src/content.js           content-script runtime (stylesheet + observer)
   src/background.js        MV3 service worker (alarms, commands, messages)
   ui/                      popup + options pages (vanilla JS, light/dark)
 apps/youtube/              product 1 = engine + rules + small site config
-  site.config.js           ids, URLs, features, page/channel detection
+  site.config.js           ids, URLs, signing key, features, self-check probes, page/channel detection
   rules/rules.json         bundled rules (fallback when remote is unavailable)
   src/features.js          non-hiding behaviours: Shorts redirect, autoplay off
   src/*.js                 2-line entry points wiring engine + config
@@ -37,7 +38,9 @@ apps/youtube/              product 1 = engine + rules + small site config
   assets/icon.svg          source icon → icons/*.png (npm run icons)
 scripts/
   build.mjs                lint → unit tests → bundle → policy checks → zip
-  policy.mjs               allowed permissions, size budget, source scan
+  policy.mjs               allowed permissions, manifest/CSP rules, size budget, source scan
+  rules-key.mjs            generate the rules signing key; sign a rules file
+  check-remote-rules.mjs   canary check of the deployed (signed) rules file
   store.mjs                generates store/ (texts, privacy, landing, screenshots)
   icons.mjs                renders the SVG icon to 16/32/48/128 PNGs
 tests/
@@ -56,7 +59,7 @@ dist/                      build output: dist/youtube/ (unpacked) + dist/neat-yo
 npm ci
 npx playwright install chromium
 npm run build          # lint + unit tests + bundle + policy checks + zip
-npm run release        # the above, then the live e2e suite; zip removed if e2e fails
+npm run release        # the above + refuses placeholders (rules URL / signing key), then live e2e; zip removed if e2e fails
 npm run test:unit
 npm run test:e2e       # live YouTube; needs network
 npm run store          # regenerate store/ including live screenshots
@@ -64,9 +67,12 @@ npm run icons
 ```
 
 The build fails if any manifest permission is outside `storage` + `alarms` +
-`https://www.youtube.com/*`, if the unpacked bundle is over 300 KB, if lint or
-any unit test fails, or if shipped JS contains `eval`, `new Function`,
-`innerHTML`-style sinks, `setInterval`, remote imports or an unexpected URL.
+`https://www.youtube.com/*`, if the manifest has unexpected keys or a weak CSP,
+if the unpacked bundle is over 300 KB, if lint or any unit test fails, or if
+shipped JS contains `eval`, `Function(`, `innerHTML`-style sinks, script
+creation, `setInterval`, remote imports or an unexpected URL. A plain build
+with the placeholder rules URL prints a warning (remote rules off); `--release`
+turns that into a failure.
 
 ## How the engine works
 
@@ -80,23 +86,32 @@ any unit test fails, or if shipped JS contains `eval`, `new Function`,
     element, climb to its nearest container.
 
   The validator rejects any key outside the schema, any selector containing
-  `{ } ; @ \ <`, comments, `url()`/`image-set()`/…, and any string that looks
-  like code (`=>`, `function`, `eval`, `javascript:`, `${`, `document.`, …).
+  `{ } ; @ \ <`, comments, `url()`/`image-set()`/…, selectors that target the
+  whole page (`html`, `body`, `:root`, `ytd-app`, `*`, bare `:not(…)`), more
+  than three `:has()`, and any string that looks like code (`=>`, `function`,
+  `eval`, `javascript:`, `${`, `document.x`, …). Remote rules may change
+  locators and add rules but can never re-label a shipped rule or flip its
+  default.
 * **Hiding** is one `<style>` element injected at `document_start` holding only
   `display: none !important` rules. Text/structural matches get a marker
   attribute the same stylesheet hides. Toggling = rewriting that stylesheet:
   instant, no reload.
 * **Observer**: one `MutationObserver` (childList only). Added nodes are batched
-  to at most one pass per animation frame and only the added subtrees are
-  scanned. No polling, no timers in the page; when the page is quiet, the
-  engine does nothing.
-* **Self-check** (in idle time, at most every 3 s): for every enabled rule,
-  count elements its locators match that are still visible (rendered, not
-  hidden by CSS, non-zero box). Any → re-mark and recheck → still visible →
-  ask the service worker to re-fetch rules once → recheck → record a
-  `broken` entry (rule id, YouTube client version, page type, time) in local
-  storage. A primary selector that stopped matching while a fallback still
-  works is recorded as `degraded`. Nothing is sent anywhere; it's shown under
+  to at most one pass per animation frame and only the changed subtrees are
+  scanned — new targets are marked, and nodes YouTube recycled for other
+  content are unmarked. No polling, no timers in the page; when the page is
+  quiet, the engine does nothing.
+* **Self-check** (in idle time, at most every 3 s, never in hidden tabs): for
+  every enabled rule, count visible elements (rendered, not hidden by CSS,
+  non-zero box) found by the rule's locators **and** by the site's
+  independent probes (`site.config.js → probes`, e.g. "any visible link to
+  /shorts/ in search results"). The probes are what catch real markup drift:
+  when YouTube renames elements, the locators match nothing but the probe
+  still sees Shorts. Any → re-mark and recheck → still visible → ask the
+  service worker to re-fetch rules once → recheck → record a `broken` entry
+  (rule id, YouTube client version, page type, time) in local storage. A
+  primary selector that stopped matching while a fallback still works is
+  recorded as `degraded`. Nothing is sent anywhere; it's shown under
   **Options → Diagnostics** with a Copy button.
 
 ## Adding a new site
@@ -104,7 +119,8 @@ any unit test fails, or if shipped JS contains `eval`, `new Function`,
 1. `apps/<site>/rules/rules.json` — `"site": "<site>"`, your rules.
 2. `apps/<site>/site.config.js` — copy the YouTube one: `id`, `matches`,
    `hostPermissions`, `rulesUrl`, `navigationEvents`, `groups`, `features`
-   (may be empty), `pageContext()`, `isAllowed()`, `normalizeChannel()`, `buildHint()`.
+   (may be empty), `probes` (one independent oracle per rule), `pageContext()`,
+   `isAllowed()`, `normalizeChannel()`, `buildHint()`, `rulesPublicKey`.
 3. `apps/<site>/src/{content,background,popup,options}.js` — copy the 2-line
    entry points; `features.js` only if the site needs non-hiding behaviour.
 4. `apps/<site>/listing.js` and `apps/<site>/assets/icon.svg`, then
@@ -115,31 +131,41 @@ any unit test fails, or if shipped JS contains `eval`, `new Function`,
 
 ## How rules updates ship without a store review
 
-The service worker fetches `RULES_URL` on install, on browser start-up and
-every 24 h (`chrome.alarms`), plus at most every 10 minutes when a tab's
-self-check reports a broken rule. A file is accepted only if it is valid JSON,
-under 64 KB, passes the strict schema, is for the same `site`, needs no newer
-engine than the installed one, and has a strictly higher `version`. Otherwise
-the last good rules stay in place (and the bundled copy is always the floor).
+The service worker fetches `RULES_URL` and `RULES_URL.sig` on install/update,
+on browser start-up and every 24 h (`chrome.alarms`), plus — still at most
+hourly — when a tab's self-check reports a broken rule. A file is accepted
+only if its **ECDSA P-256 signature verifies against the public key built into
+the extension**, it is UTF-8 JSON under 64 KB, passes the strict schema, is for
+the same `site`, needs no newer engine than the installed one, and has a
+strictly higher `version`. Otherwise the last good rules stay in place (and
+the bundled copy is always the floor).
 
 To ship a fix: edit `apps/youtube/rules/rules.json`, bump `version`, run
-`npm run test:unit`, and publish the file at the rules URL (e.g. commit it to
-a GitHub Pages branch). Every installed copy picks it up within a day — no
-store submission, because rules are data (CSS selectors), not code. Changes
-to code, features or permissions still need a normal store release.
+`npm run test:unit`, sign it, and publish both files at the rules URL (e.g. a
+GitHub Pages branch):
 
-The rules host must serve the file over HTTPS with
+```bash
+npm run rules:key -- sign apps/youtube/rules/rules.json   # writes rules.json.sig
+```
+
+Every installed copy picks it up within a day — no store submission, because
+rules are data (CSS selectors), not code. Changes to code, features or
+permissions still need a normal store release.
+
+The rules host must serve both files over HTTPS with
 `Access-Control-Allow-Origin: *` and **without redirects** (redirects are
 refused). The build sets the manifest CSP `connect-src` to that one origin.
 
-Set it at build time:
+Set both at build time:
 
 ```bash
-RULES_URL=https://<you>.github.io/neat-rules/neat-youtube/rules.json npm run build
+RULES_URL=https://<you>.github.io/neat-rules/neat-youtube/rules.json \
+RULES_PUBLIC_KEY='{"kty":"EC","crv":"P-256","x":"…","y":"…"}' npm run release
 ```
 
-While it is the placeholder (`https://RULES_HOST/…`) the extension never makes
-a network request at all (CSP `connect-src 'none'`).
+(or put the public key in `site.config.js → rulesPublicKey`). While the URL is
+the placeholder or no key is set, the extension never makes a network request
+at all (CSP `connect-src 'none'`).
 
 ## Store kit (`store/`)
 
@@ -147,7 +173,7 @@ a network request at all (CSP `connect-src 'none'`).
 (single purpose, permission justifications, data-use answers),
 `privacy.html`, `site/` (one-page landing site + privacy page),
 `screenshots/1-before-after.png`, `2-popup.png`, `3-options.png` (1280×800),
-`promo-small-440x280.png`.
+`promo-small-440x280.png`, `marquee-1400x560.png`.
 
 ## Testing notes
 
@@ -170,18 +196,26 @@ a network request at all (CSP `connect-src 'none'`).
    identity verification), then upload `dist/neat-youtube-1.0.0.zip`, paste
    `store/` texts, upload screenshots + promo tile, set the privacy-policy URL,
    answer the data-use form from `store/listing.json`.
-2. **After the first upload**, replace `EXTENSION_ID` in
-   `apps/youtube/site.config.js` (`reviewUrl`) and in `scripts/store.mjs`
-   (`INSTALL_URL`) with the real id; rebuild; `npm run store`.
-3. **GitHub**: create the repository, `git remote add origin …`, `git push -u
+2. **Rules signing key**: `npm run rules:key -- generate`. Keep
+   `.keys/rules-private.jwk` secret and backed up (losing it means a store
+   release to rotate keys). Put the printed public key in
+   `apps/youtube/site.config.js → rulesPublicKey`.
+3. **Rules host**: choose the URL (e.g. GitHub Pages of a `neat-rules` repo),
+   publish `apps/youtube/rules/rules.json` and its `.sig` there, set
+   `RULES_URL`, and build the store zip with `npm run release` (it refuses
+   placeholders).
+4. **GitHub**: create the repository, `git remote add origin …`, `git push -u
    origin main`. The canary workflow starts on that push; it needs Actions
    enabled and "Read and write" workflow permissions (Settings → Actions) so
-   it can open issues.
-4. **Rules host**: choose the URL (e.g. GitHub Pages of a `neat-rules` repo),
-   publish `apps/youtube/rules/rules.json` there, rebuild with `RULES_URL=…`,
-   and make that the store build.
-5. **Host the landing page and privacy policy** (`store/site/`, e.g. GitHub
-   Pages) and put the privacy URL in the store listing; add the source-repo
-   link to the privacy page's Contact section.
-6. **Brand**: if "Neat" changes, edit `brand.config.js`, then `npm run build`,
+   it can open issues. Add repository **variables** `RULES_URL` and
+   `RULES_PUBLIC_KEY` so the canary also checks the deployed rules.
+5. **Source link**: set `sourceUrl` in `apps/youtube/listing.js` (backs the
+   "Open source." line and the privacy-policy contact), then `npm run store`.
+6. **After the first upload**, replace `EXTENSION_ID` in `scripts/store.mjs`
+   (`INSTALL_URL`, the landing page's install button) and regenerate
+   `npm run store`. (The in-extension review link uses the runtime id and
+   needs no change.)
+7. **Host the landing page and privacy policy** (`store/site/`, e.g. GitHub
+   Pages) and put the privacy URL in the store listing.
+8. **Brand**: if "Neat" changes, edit `brand.config.js`, then `npm run build`,
    `npm run icons`, `npm run store`.

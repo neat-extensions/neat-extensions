@@ -114,7 +114,13 @@ test.describe("rules schema validator", () => {
       "unbalanced brackets": "a[href=\"x\"",
       "unbalanced quotes": "a[title=\"x]",
       "javascript in attribute selector": "a[href=\"javascript:alert(1)\"]",
-      "data URL": "a[src^=\"data:text/html\"]",
+      "the whole page (html)": "html",
+      "the body": "ytd-app, body",
+      ":root": ":root",
+      "everything (*)": "ytd-app:has(~ *) *",
+      "everything via :not": ":not(:has(*))",
+      "bare universal with pseudo": "*:not(:has(*))",
+      "too many :has()": "a:has(b):has(c):has(d):has(e)",
       "control character": "a\u0000b",
       "overlong selector": "a".repeat(LIMITS.maxSelector + 1),
     };
@@ -129,6 +135,13 @@ test.describe("rules schema validator", () => {
       const d = minimal();
       d.rules[0].locators[0] = { type: "text", container: "a", label: "b", match: "() => steal()" };
       expect(validateRules(d).ok).toBe(false);
+    });
+    test("no false positives on ordinary selectors", () => {
+      for (const sel of ["#self .x", ".foo-chrome .x", "a[href*=\"data:\"]", "ytd-browse[page-subtype=\"home\"] ytd-rich-grid-renderer", "body ytd-x", "html .y"]) {
+        const d = minimal();
+        d.rules[0].locators[0].selector = sel;
+        expect(validateRules(d).errors, sel).toEqual([]);
+      }
     });
     test("looksLikeCode leaves plain labels alone", () => {
       for (const s of ["Shorts", "Shorts in search results", "Entire Home feed", "End-screen recommendations"]) expect(looksLikeCode(s)).toBe(false);

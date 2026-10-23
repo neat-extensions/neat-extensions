@@ -42,7 +42,7 @@ export function groupedItems(site, rulesDoc) {
 }
 
 /** Render grouped toggles into `container`. */
-export function renderToggles(container, site, rulesDoc, settings) {
+export function renderToggles(container, site, rulesDoc, settings, headingLevel = "h2") {
   container.replaceChildren();
   for (const { group, items } of groupedItems(site, rulesDoc)) {
     const list = el("div", { class: "list" });
@@ -62,15 +62,15 @@ export function renderToggles(container, site, rulesDoc, settings) {
       );
       list.append(el("label", { class: "row", for: `t-${item.id}` }, el("span", { text: item.label }), input));
     }
-    container.append(el("div", { class: "group" }, el("h2", { text: group }), list));
+    container.append(el("div", { class: "group" }, el(headingLevel, { text: group }), list));
   }
 }
 
 /** Re-sync checkbox states without rebuilding (keeps focus while a user is tabbing). */
-export function syncToggles(container, site, rulesDoc, settings) {
+export function syncToggles(container, site, rulesDoc, settings, headingLevel = "h2") {
   const known = new Set([...rulesDoc.rules, ...site.features].map((i) => i.id));
   const shown = new Set([...container.querySelectorAll("input[data-id]")].map((i) => i.dataset.id));
-  if (known.size !== shown.size || [...known].some((id) => !shown.has(id))) return renderToggles(container, site, rulesDoc, settings);
+  if (known.size !== shown.size || [...known].some((id) => !shown.has(id))) return renderToggles(container, site, rulesDoc, settings, headingLevel);
   for (const item of [...rulesDoc.rules, ...site.features]) {
     const input = container.querySelector(`input[data-id="${CSS.escape(item.id)}"]`);
     if (input) input.checked = isOn(settings, item);

@@ -24,13 +24,33 @@ export function isVisible(el, depth = 0) {
   return r.width >= 1 && r.height >= 1;
 }
 
+const norm = (t) => (t || "").replace(/\s+/g, " ").trim().toLowerCase();
+
+/** Elements an independent probe finds (selector, optionally with exact text). */
+export function probeTargets(root, probe) {
+  let els;
+  try {
+    els = [...root.querySelectorAll(probe.selector)];
+  } catch {
+    return [];
+  }
+  if (probe.text) {
+    const want = norm(probe.text);
+    els = els.filter((e) => norm(e.textContent) === want);
+  }
+  return els;
+}
+
 /**
  * @param {Document|Element} root
  * @param {Array} rules
  * @param {Set<string>} enabled
- * @returns {Array<{id: string, matched: number, visible: number, broken: boolean, degraded: boolean}>}
+ * @param {{probes?: Record<string, Array<{selector: string, text?: string}>>, visible?: (el: Element) => boolean}} [opts]
+ *   probes: per-rule oracles that do not depend on the rule's locators, so a rule
+ *   whose locators no longer match anything is still caught while Shorts show.
+ * @returns {Array<{id: string, matched: number, visible: number, probed: number, broken: boolean, degraded: boolean}>}
  */
-export function selfCheck(root, rules, enabled, visible = isVisible) {
+export function selfCheck(root, rules, enabled, { probes = {}, visible = isVisible } = {}) {
   const out = [];
   for (const rule of rules) {
     if (!enabled.has(rule.id)) continue;
@@ -41,9 +61,17 @@ export function selfCheck(root, rules, enabled, visible = isVisible) {
       if (i === 0) primary = t.length;
       for (const el of t) all.add(el);
     });
+    const matched = all.size;
+    let probed = 0;
+    for (const p of probes[rule.id] || []) {
+      for (const el of probeTargets(root, p)) {
+        probed++;
+        all.add(el);
+      }
+    }
     let vis = 0;
     for (const el of all) if (visible(el)) vis++;
-    out.push({ id: rule.id, matched: all.size, visible: vis, broken: vis > 0, degraded: primary === 0 && all.size > 0 });
+    out.push({ id: rule.id, matched, visible: vis, probed, broken: vis > 0, degraded: primary === 0 && matched > 0 });
   }
   return out;
 }

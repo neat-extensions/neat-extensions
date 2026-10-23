@@ -1,15 +1,17 @@
 // Build pipeline: lint → unit tests → bundle → policy checks → zip [→ e2e with --e2e].
 // Any failure exits non-zero and no zip is written.
 //
-//   node scripts/build.mjs [site] [--e2e] [--skip-tests] [--out <dir>]
-//   RULES_URL=https://example.com/rules.json node scripts/build.mjs
+//   node scripts/build.mjs [site] [--e2e] [--release] [--skip-tests] [--out <dir>]
+//   RULES_URL=https://example.com/rules.json RULES_PUBLIC_KEY='{"kty":"EC",…}' node scripts/build.mjs --release
+//   --release refuses placeholders (store uploads must be able to receive rule fixes).
 import { build } from "esbuild";
 import { spawnSync } from "node:child_process";
 import { readFile, writeFile, mkdir, rm, cp, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import { zipSync } from "fflate";
 import { BRAND, BRAND_SLUG } from "../brand.config.js";
-import { validateRules, validateRulesUrl } from "../packages/engine/src/schema.js";
+import { validateRules, validateRulesUrl, isPlaceholderUrl } from "../packages/engine/src/schema.js";
+import { isPublicJwk } from "../packages/engine/src/signature.js";
 import { TRUST_LINES } from "../packages/engine/src/trust.js";
 import { ALLOWED_PERMISSIONS, MAX_BUNDLE_BYTES, checkManifest, scanSource, checkBundleSize } from "./policy.mjs";
 const ROOT = path.resolve(import.meta.dirname, "..");
@@ -37,6 +39,7 @@ const { default: site } = await import(pathToUrl(path.join(appDir, "site.config.
 const listing = await import(pathToUrl(path.join(appDir, "listing.js")));
 const rules = JSON.parse(await readFile(path.join(appDir, "rules", "rules.json"), "utf8"));
 const rulesUrl = process.env.RULES_URL || site.rulesUrl;
+const publicKey = process.env.RULES_PUBLIC_KEY ? JSON.parse(process.env.RULES_PUBLIC_KEY) : site.rulesPublicKey;
 const outDir = path.join(outRoot, siteName);
 const zipName = `${BRAND_SLUG}-${siteName}-${site.version}.zip`;
 
@@ -58,6 +61,14 @@ const rv = validateRules(rules, { site: site.id });
 if (!rv.ok) fail(`bundled rules invalid:\n  ${rv.errors.join("\n  ")}`);
 const uv = validateRulesUrl(rulesUrl);
 if (!uv.ok) fail(`RULES_URL: ${uv.error}`);
+if (publicKey && !isPublicJwk(publicKey)) fail("rules public key must be a P-256 public JWK (no private part)");
+const remoteOn = !isPlaceholderUrl(rulesUrl) && isPublicJwk(publicKey);
+if (!remoteOn) console.log("  ⚠ remote rules are OFF in this build (placeholder RULES_URL or no signing key): bundled rules only");
+if (flag("--release")) {
+  // A store upload must be able to receive rule fixes; refuse to ship a build that can't.
+  if (isPlaceholderUrl(rulesUrl)) fail("release build still uses the placeholder RULES_URL — set RULES_URL=https://…");
+  if (!isPublicJwk(publicKey)) fail("release build has no rules signing key — run scripts/rules-key.mjs generate and set RULES_PUBLIC_KEY");
+}
 if (listing.title.length > 45) fail(`listing title is ${listing.title.length} chars (max 45)`);
 if (listing.summary.length > 132) fail(`summary is ${listing.summary.length} chars (max 132)`);
 
@@ -75,11 +86,11 @@ await build({
   minify: false, // readable code for store review
   legalComments: "none",
   charset: "utf8",
-  define: { "process.env.RULES_URL": JSON.stringify(rulesUrl) },
+  define: { "process.env.RULES_URL": JSON.stringify(rulesUrl), "process.env.RULES_PUBLIC_KEY": JSON.stringify(publicKey ? JSON.stringify(publicKey) : "") },
   logLevel: "warning",
 });
 
-const connectSrc = uv.url.hostname === "rules_host" ? "'none'" : uv.url.origin;
+const connectSrc = remoteOn ? uv.url.origin : "'none'";
 const manifest = {
   manifest_version: 3,
   name: listing.title,
@@ -111,7 +122,6 @@ const fill = (html) =>
   html
     .replaceAll("{{PRODUCT}}", site.productName)
     .replaceAll("{{BRAND}}", BRAND)
-    .replaceAll("{{SHORTCUT_HINT}}", `Shortcut: ${site.masterCommand.key}`)
     .replaceAll("{{TRUST_ITEMS}}", TRUST_LINES.map((t) => `<li>${t}</li>`).join(""));
 for (const page of ["popup.html", "options.html"]) {
   const html = await readFile(path.join(ROOT, "packages", "engine", "ui", page), "utf8");

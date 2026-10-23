@@ -2,7 +2,7 @@
 // YouTube Home over 30 seconds (load + scrolling) must stay under 150 ms.
 // Measured with the V8 sampling profiler: a sample counts if ANY frame on its
 // stack belongs to the extension, so native DOM calls it makes are included.
-import { test, expect, URLS, handleConsent, warmUpHome } from "./helpers.js";
+import { test, expect, URLS, handleConsent, warmUpHome, coversRules } from "./helpers.js";
 import { writeFileSync } from "node:fs";
 import path from "node:path";
 
@@ -11,6 +11,7 @@ const WINDOW_MS = 30_000;
 
 test("engine scripting time on Home over 30 s stays under 150 ms", async ({ page, extensionId }) => {
   test.setTimeout(180_000);
+  coversRules("perf");
   await warmUpHome(page); // so Home shows a real feed, not the empty first-visit page
   // Same-origin hop so the profiler is attached to the renderer that loads Home.
   await page.goto("https://www.youtube.com/robots.txt");
@@ -53,10 +54,23 @@ test("engine scripting time on Home over 30 s stays under 150 ms", async ({ page
     if (isExt(id)) extUs += dt;
   });
   const extMs = extUs / 1000;
-  const result = { extensionScriptingMs: Number(extMs.toFixed(2)), profiledMs: Math.round(totalUs / 1000), budgetMs: BUDGET_MS, samples: profile.samples.length };
+  // Where the time went: attribute each extension sample to its innermost extension frame
+  // (native calls it makes are charged to the extension function that made them).
+  const byFn = new Map();
+  profile.samples.forEach((id, i) => {
+    if (!isExt(id)) return;
+    let n = id;
+    while (n && !byId.get(n).callFrame.url.startsWith(prefix)) n = parent.get(n);
+    const f = n ? byId.get(n).callFrame : { functionName: "?", lineNumber: 0 };
+    const key = `${f.functionName || "(anonymous)"}:${f.lineNumber + 1}`;
+    byFn.set(key, (byFn.get(key) || 0) + (profile.timeDeltas[i] || 0) / 1000);
+  });
+  const top = [...byFn].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([k, v]) => `${k} ${v.toFixed(1)}ms`);
+  const result = { extensionScriptingMs: Number(extMs.toFixed(2)), profiledMs: Math.round(totalUs / 1000), budgetMs: BUDGET_MS, samples: profile.samples.length, top };
   writeFileSync(path.join("test-results", "perf.json"), JSON.stringify(result, null, 2));
   test.info().annotations.push({ type: "perf", description: JSON.stringify(result) });
-  console.log(`  engine scripting time on Home over 30 s: ${result.extensionScriptingMs} ms (budget ${BUDGET_MS} ms)`);
+  console.log(`  engine scripting time on Home over 30 s: ${result.extensionScriptingMs} ms (budget ${BUDGET_MS} ms)
+    top: ${top.join(" | ")}`);
 
   // Sanity: the profile must actually contain the extension, or the number means nothing.
   expect(profile.nodes.some((n) => n.callFrame.url.startsWith(prefix)), "extension frames present in profile").toBe(true);

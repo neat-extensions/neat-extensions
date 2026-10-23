@@ -28,6 +28,12 @@ test.describe("release policy", () => {
     ["unsafe-eval in CSP", (m) => (m.content_security_policy.extension_pages = "script-src 'self' 'unsafe-eval'; object-src 'none'"), /CSP/],
     ["a remote script host in CSP", (m) => (m.content_security_policy.extension_pages = "script-src 'self' https://cdn.example.com; object-src 'none'"), /CSP/],
     ["manifest v2", (m) => (m.manifest_version = 2), /manifest_version/],
+    ["bare * in CSP", (m) => (m.content_security_policy.extension_pages = "script-src 'self'; object-src 'none'; connect-src *"), /bare \*/],
+    ["https: scheme source in CSP", (m) => (m.content_security_policy.extension_pages = "script-src 'self'; object-src 'none'; img-src https:"), /scheme-wide/],
+    ["a sandbox CSP", (m) => (m.content_security_policy.sandbox = "sandbox allow-scripts"), /sandbox/],
+    ["main-world content scripts", (m) => (m.content_scripts[0].world = "MAIN"), /isolated world/],
+    ["content script css injection", (m) => (m.content_scripts[0].css = ["x.css"]), /no css/],
+    ["unknown manifest keys", (m) => (m.oauth2 = {}), /unexpected manifest key/],
   ]) {
     test(`rejects ${name}`, () => {
       const m = good();
@@ -44,7 +50,7 @@ test.describe("release policy", () => {
   test("source scan catches remote/dynamic code and unexpected hosts", () => {
     const url = "https://rules.example.com/r.json";
     expect(scanSource('fetch("https://rules.example.com/r.json"); location.href="https://www.youtube.com/"', url)).toEqual([]);
-    for (const bad of ["eval(x)", "new Function('a')", "el.innerHTML = s", "el.insertAdjacentHTML('x', s)", "setInterval(f, 10)", "setTimeout('x()', 1)", "importScripts('x.js')", "chrome.scripting.executeScript({})", 'fetch("https://tracker.example.net/p")']) {
+    for (const bad of ["eval(x)", "new Function('a')", "el.innerHTML = s", "el.insertAdjacentHTML('x', s)", "setInterval(f, 10)", "setTimeout('x()', 1)", "importScripts('x.js')", "Function('return 1')()", "document.createElement('script')", "el.setAttribute('onclick', s)", "chrome.scripting.executeScript({})", 'fetch("https://tracker.example.net/p")']) {
       expect(scanSource(bad, url).length, bad).toBeGreaterThan(0);
     }
   });

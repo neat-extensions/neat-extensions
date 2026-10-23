@@ -10,6 +10,7 @@ test("build unpacked extension for e2e", () => {
   execFileSync(process.execPath, [path.join(ROOT, "scripts", "build.mjs"), "--skip-tests", "--out", "dist-test"], {
     cwd: ROOT,
     stdio: "inherit",
-    env: { ...process.env, RULES_URL: "" },
+    // The canary sets E2E_RULES_URL/E2E_RULES_PUBLIC_KEY to exercise the deployed rules; locally: bundled only.
+    env: { ...process.env, RULES_URL: process.env.E2E_RULES_URL || "", RULES_PUBLIC_KEY: process.env.E2E_RULES_PUBLIC_KEY || "" },
   });
 });

@@ -11,7 +11,8 @@
     "test": "playwright test",
     "icons": "node scripts/icons.mjs",
     "build": "node scripts/build.mjs",
-    "release": "node scripts/build.mjs --e2e",
+    "release": "node scripts/build.mjs --release --e2e",
+    "rules:key": "node scripts/rules-key.mjs",
     "store": "node scripts/store.mjs"
   },
   "engines": {

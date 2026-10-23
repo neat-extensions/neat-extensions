@@ -19,8 +19,8 @@ footer{margin-top:60px;font-size:14px}</style></head>
 <p><strong>Neat for YouTube does not collect, store, sell or share any personal data.</strong> It has no account, no analytics, no advertising and no tracking.</p>
 <h2>What stays on your device</h2>
 <p>Your settings (which items are hidden, the master switch, your allowed-channels list), the current hiding rules, a short self-check log, and a count of the days you used the extension (used once, to decide whether to show a single “leave a review” card) are kept in your browser's local extension storage. They never leave your device. Uninstalling the extension deletes them.</p>
-<h2>The one network request</h2>
-<p>So it keeps working when YouTube changes its layout, the extension may download an updated rules file (a small JSON list of CSS selectors) from a single fixed HTTPS address, at most about once a day. This request contains no information about you, your browsing or your settings: no cookies, no identifiers and no browsing history are sent. Like any web request, the server that hosts the file can see the IP address the request came from; we do not log or use it. The downloaded rules are checked strictly and can only hide page elements — they cannot run code.</p>
+<h2>The one kind of network request</h2>
+<p>So it keeps working when YouTube changes its layout, the extension downloads an updated rules file (a small JSON list of CSS selectors, plus its digital signature) from one fixed HTTPS address: when it is installed or updated, when the browser starts, and once a day — never more than once an hour automatically (you can also check by hand from Options). These requests contain no information about you, your browsing or your settings: no cookies, no identifiers, no history. Like any web request, the server that hosts the file can see the IP address the request came from; we do not log or use it. A rules file is used only if its signature matches the key built into the extension and it passes strict checks; rules can only hide page elements — they cannot run code.</p>
 <h2>Permissions</h2>
 <ul>
 <li><strong>Read and change your data on www.youtube.com</strong> — to hide the parts of YouTube you chose. The extension does not read or record what you watch, and runs on no other site.</li>
@@ -29,6 +29,6 @@ footer{margin-top:60px;font-size:14px}</style></head>
 </ul>
 <h2>Children</h2><p>The extension collects no data from anyone, including children.</p>
 <h2>Changes</h2><p>If this policy ever changes, the new version will be published at this address before the change takes effect.</p>
-<h2>Contact</h2><p>Questions: open an issue in the project's public source repository (link to be added).</p>
+<h2>Contact</h2><p>Questions: open an issue in the project's public source repository (link added at publication).</p>
 <p class="muted">Neat is not affiliated with or endorsed by YouTube or Google.</p>
 </main></body></html>
