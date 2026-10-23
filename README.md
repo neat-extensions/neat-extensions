@@ -213,6 +213,16 @@ public half in `site.config.js`, and ship a store release.
   (visible links to `/shorts/`, a visible "Shorts" tab, …).
 * A fresh logged-out profile gets an empty Home; the tests watch two videos
   first so Home has a real feed.
+* From GitHub runners (datacenter IPs) YouTube sometimes serves Google's
+  "unusual traffic" reCAPTCHA page or a "confirm you're not a bot" wall
+  instead of the player. Tests that hit one are **skipped as blocked**, never
+  reported as broken rules (and never solved). The canary run summary and a
+  workflow warning list every blocked test, so a run that judged nothing is
+  visible; the release e2e runs on the owner's machine, where it is not blocked.
+* `tests/e2e/live-rules.spec.js` checks the shipped build against the live
+  rules host: it loads the release zip (or `dist-test`), waits for the
+  install-time fetch to verify the live signature, then tampers with the live
+  `.sig` in transit and expects the file to be rejected.
 * On Windows inside an app that virtualises `%LOCALAPPDATA%`, install browsers
   to a real folder: `PLAYWRIGHT_BROWSERS_PATH=.browsers npx playwright install chromium`
   and run tests with the same variable.

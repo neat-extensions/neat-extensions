@@ -13,7 +13,8 @@ export default class CanaryReporter {
 
   onTestEnd(test, result) {
     if (test.parent.project()?.name !== "e2e") return;
-    const final = result.status === "passed" || result.retry === test.retries;
+    // Passed and skipped results are never retried, so they are final whatever the retry count.
+    const final = result.status === "passed" || result.status === "skipped" || result.retry === test.retries;
     if (!final) return;
     if (result.status === "passed") {
       this.passed++;
