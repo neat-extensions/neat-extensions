@@ -13,9 +13,9 @@ const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 const clean = (v, max) => (typeof v === "string" ? v.replace(/[^\w.\-/:@ ]/g, "").slice(0, max) : "");
 
-export function startBackground({ site, bundledRules, rulesUrl, publicKey, masterCommand = "toggle-master" }) {
+export function startBackground({ site, bundledRules, rulesUrl, fallbackUrl = "", publicKey, masterCommand = "toggle-master" }) {
   const storage = chrome.storage.local;
-  const updater = createUpdater({ site: site.id, bundled: bundledRules, rulesUrl, publicKey, storage, fetchImpl: (...a) => fetch(...a) });
+  const updater = createUpdater({ site: site.id, bundled: bundledRules, rulesUrl, fallbackUrl, publicKey, storage, fetchImpl: (...a) => fetch(...a) });
 
   let queue = Promise.resolve();
   const serial = (fn) => (queue = queue.then(fn).catch(() => {}));

@@ -45,6 +45,8 @@ const { default: site } = await import(pathToUrl(path.join(appDir, "site.config.
 const listing = await import(pathToUrl(path.join(appDir, "listing.js")));
 const rules = JSON.parse(await readFile(path.join(appDir, "rules", "rules.json"), "utf8"));
 const rulesUrl = process.env.RULES_URL || site.rulesUrl;
+// An overridden RULES_URL (tests, other hosts) has no fallback unless RULES_FALLBACK_URL names one.
+const fallbackUrl = process.env.RULES_URL ? process.env.RULES_FALLBACK_URL || "" : site.rulesFallbackUrl || "";
 const publicKey = process.env.RULES_PUBLIC_KEY ? JSON.parse(process.env.RULES_PUBLIC_KEY) : site.rulesPublicKey;
 const outDir = path.join(outRoot, siteName);
 const zipName = `${BRAND_SLUG}-${siteName}-${site.version}.zip`;
@@ -67,6 +69,8 @@ const rv = validateRules(rules, { site: site.id });
 if (!rv.ok) fail(`bundled rules invalid:\n  ${rv.errors.join("\n  ")}`);
 const uv = validateRulesUrl(rulesUrl);
 if (!uv.ok) fail(`RULES_URL: ${uv.error}`);
+const fv = fallbackUrl ? validateRulesUrl(fallbackUrl) : null;
+if (fv && !fv.ok) fail(`RULES_FALLBACK_URL: ${fv.error}`);
 if (publicKey && !isPublicJwk(publicKey)) fail("rules public key must be a P-256 public JWK (no private part)");
 const remoteOn = !isPlaceholderUrl(rulesUrl) && isPublicJwk(publicKey);
 if (!remoteOn) console.log("  ⚠ remote rules are OFF in this build (placeholder RULES_URL or no signing key): bundled rules only");
@@ -92,11 +96,11 @@ await build({
   minify: false, // readable code for store review
   legalComments: "none",
   charset: "utf8",
-  define: { "process.env.RULES_URL": JSON.stringify(rulesUrl), "process.env.RULES_PUBLIC_KEY": JSON.stringify(publicKey ? JSON.stringify(publicKey) : "") },
+  define: { "process.env.RULES_URL": JSON.stringify(rulesUrl), "process.env.RULES_FALLBACK_URL": JSON.stringify(fallbackUrl), "process.env.RULES_PUBLIC_KEY": JSON.stringify(publicKey ? JSON.stringify(publicKey) : "") },
   logLevel: "warning",
 });
 
-const connectSrc = remoteOn ? uv.url.origin : "'none'";
+const connectSrc = remoteOn ? [...new Set([uv.url.origin, fv?.url.origin].filter(Boolean))].join(" ") : "'none'";
 const manifest = {
   manifest_version: 3,
   name: listing.title,
@@ -162,8 +166,8 @@ if (sizeErrors.length) fail(sizeErrors[0]);
 
 // No remote code, dynamic code, HTML injection or unexpected hosts in shipped JavaScript.
 for (const f of files.filter((x) => x.endsWith(".js"))) {
-  // site.config.js is bundled whole, so its default rulesUrl is present even when RULES_URL overrides it.
-  const problems = scanSource(await readFile(f, "utf8"), [rulesUrl, site.rulesUrl]);
+  // site.config.js is bundled whole, so its default URLs are present even when RULES_URL overrides them.
+  const problems = scanSource(await readFile(f, "utf8"), [rulesUrl, fallbackUrl, site.rulesUrl, site.rulesFallbackUrl]);
   if (problems.length) fail(`${path.relative(ROOT, f)} ${problems.join("; ")}`);
 }
 console.log(`  permissions: ${JSON.stringify(built.permissions)}  host_permissions: ${JSON.stringify(built.host_permissions)}`);

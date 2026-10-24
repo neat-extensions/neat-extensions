@@ -151,6 +151,56 @@ test.describe("remote rules updater", () => {
     });
   });
 
+  test.describe("fallback host", () => {
+    const FALLBACK = "https://fallback.example.org/neat/youtube/rules.json";
+    // Primary host behaves per `primary`; the fallback host serves `fb` (both signed with the trusted key unless overridden).
+    const twoHosts = (primary, fb) => {
+      const calls = [];
+      const fn = async (url, init) => {
+        calls.push(url);
+        return (url.startsWith(FALLBACK) ? fb : primary)(url, init);
+      };
+      fn.calls = calls;
+      return fn;
+    };
+    const makeFb = (f, storage = fakeStorage()) =>
+      ({ storage, u: createUpdater({ site: "youtube", bundled, rulesUrl: URL_OK, fallbackUrl: FALLBACK, publicKey: KEYS_.publicJwk, storage, fetchImpl: f, now: () => 1 }) });
+
+    test("is not contacted when the primary host works", async () => {
+      const f = twoHosts(fakeFetch(doc("1.0.0")), fakeFetch(doc("2.0.0")));
+      const { u } = makeFb(f);
+      expect((await u.refresh("install")).status).toBe("up-to-date (1.0.0)");
+      expect(f.calls.every((c) => c.startsWith(URL_OK))).toBe(true);
+    });
+
+    test("serves the update when the primary host is down", async () => {
+      const f = twoHosts(fakeFetch(new TypeError("Failed to fetch")), fakeFetch(doc("1.3.0")));
+      const { u, storage } = makeFb(f);
+      expect((await u.refresh("install")).updated).toBe(true);
+      expect(storage.data.rules.version).toBe("1.3.0");
+      expect(f.calls.sort()).toEqual([FALLBACK, `${FALLBACK}.sig`, URL_OK, `${URL_OK}.sig`].sort());
+    });
+
+    test("is held to the same signature check, and both failures are reported", async () => {
+      const f = twoHosts(fakeFetch("x", { status: 503 }), fakeFetch(doc("2.0.0"), { signer: OTHER }));
+      const { u, storage } = makeFb(f, fakeStorage({ rules: doc("1.1.0") }));
+      const r = await u.refresh("install");
+      expect(r.updated).toBe(false);
+      expect(r.status).toMatch(/^fetch failed: http 503 .*; fallback rejected: signature/);
+      expect(storage.data.rules.version).toBe("1.1.0");
+    });
+
+    test("an invalid or placeholder fallback is ignored", async () => {
+      for (const fallbackUrl of ["http://plain.example.org/r.json", "https://RULES_HOST/r.json", "not a url"]) {
+        const f = fakeFetch(new TypeError("Failed to fetch"));
+        const storage = fakeStorage();
+        const u = createUpdater({ site: "youtube", bundled, rulesUrl: URL_OK, fallbackUrl, publicKey: KEYS_.publicJwk, storage, fetchImpl: f, now: () => 1 });
+        await u.refresh("install");
+        expect(f.calls.every((c) => c.url.startsWith(URL_OK))).toBe(true);
+      }
+    });
+  });
+
   test("throttles scheduled refreshes; a manual check bypasses the throttle", async () => {
     let t = 10_000_000;
     const f = fakeFetch(doc("1.0.0"));

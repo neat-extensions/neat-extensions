@@ -24,9 +24,9 @@ const listing = await import(new URL(`file:///${path.join(appDir, "listing.js").
 const OUT = path.join(ROOT, "store");
 const SHOTS = path.join(OUT, "screenshots");
 const SITE_OUT = path.join(OUT, "site");
-// Owner step after the first store upload: set the 32-letter item id. Until then the
+// The 32-letter store item id (published 2026-10-24). While null the
 // landing page shows a disabled "pending" button instead of a dead store link.
-const EXTENSION_ID = null;
+const EXTENSION_ID = "ojmhepcnbecbgcoehobgflnlfmebelkh";
 const INSTALL_URL = EXTENSION_ID ? `https://chromewebstore.google.com/detail/${EXTENSION_ID}` : null;
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 

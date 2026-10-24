@@ -9,9 +9,9 @@ import site from "../../apps/youtube/site.config.js";
 
 export const MARK = `data-${BRAND_SLUG}-hide`;
 export const STYLE = `style[data-${BRAND_SLUG}]`;
-// The rules URL the e2e build uses (shipped default, or E2E_RULES_URL); the extension may request exactly these.
-const E2E_RULES_URL = process.env.E2E_RULES_URL || site.rulesUrl;
-export const ALLOWED_EXT_REQUESTS = [E2E_RULES_URL, `${E2E_RULES_URL}.sig`];
+// The rules URLs the e2e build uses (shipped default + fallback, or E2E_RULES_URL alone); the extension may request exactly these.
+const E2E_RULES_URLS = process.env.E2E_RULES_URL ? [process.env.E2E_RULES_URL] : [site.rulesUrl, site.rulesFallbackUrl];
+export const ALLOWED_EXT_REQUESTS = E2E_RULES_URLS.flatMap((u) => [u, `${u}.sig`]);
 
 export const ROOT = path.resolve(import.meta.dirname, "..", "..");
 export const EXT_DIR = path.join(ROOT, "dist-test", "youtube");
@@ -32,10 +32,14 @@ const CONSENT_COOKIE = { name: "SOCS", value: "CAI", domain: ".youtube.com", pat
 // Lets context.on("request") see requests made by the extension's service worker.
 process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS = "1";
 
+// Windows Smart App Control blocks Playwright's unsigned Chromium; E2E_CHANNEL=msedge runs the
+// same tests in Edge (signed, still honours --load-extension). Branded Chrome ignores it.
+const CHANNEL = process.env.E2E_CHANNEL || "chromium";
+
 export async function launch({ extension = true, extDir = EXT_DIR, viewport = { width: 1400, height: 900 }, extraArgs = [], deviceScaleFactor } = {}) {
   const args = extension ? [`--disable-extensions-except=${extDir}`, `--load-extension=${extDir}`, ...extraArgs] : extraArgs;
   const context = await chromium.launchPersistentContext("", {
-    channel: "chromium",
+    channel: CHANNEL,
     headless: !process.env.HEADED,
     viewport,
     ...(deviceScaleFactor ? { deviceScaleFactor } : {}),

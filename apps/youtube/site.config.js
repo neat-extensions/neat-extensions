@@ -1,6 +1,6 @@
 // Site config for "Neat for YouTube". A product = engine + rules.json + this file.
 // Everything here is plain data or small pure helpers; no remote input reaches code.
-import { BRAND, SITE_URL } from "../../brand.config.js";
+import { BRAND, SITE_URL, OLD_SITE_URL } from "../../brand.config.js";
 
 // Handles: letters/marks/digits in any script plus _ . - · (YouTube's allowed set), 3–100 chars.
 const HANDLE_RE = /^@[\p{L}\p{M}\p{N}_.\-·]{3,100}$/u;
@@ -66,12 +66,15 @@ export default {
   name: "YouTube",
   productName: `${BRAND} for YouTube`,
   listingTitle: `${BRAND} — Hide YouTube Shorts`,
-  version: "1.0.0",
+  version: "1.0.1",
   matches: ["https://www.youtube.com/*"],
   hostPermissions: ["https://www.youtube.com/*"],
   // docs/youtube/ of the public repo, served at SITE_URL. Builds up to 1.0.0 fetch it from
-  // OLD_SITE_URL, which keeps serving it directly. Override at build time with RULES_URL=https://… .
+  // OLD_SITE_URL, which keeps serving it directly; from 1.0.1 that is only the fallback, tried
+  // when SITE_URL fails. Override at build time with RULES_URL=https://… (which drops the
+  // fallback unless RULES_FALLBACK_URL is also set).
   rulesUrl: `${SITE_URL}youtube/rules.json`,
+  rulesFallbackUrl: `${OLD_SITE_URL}youtube/rules.json`,
   // Public half of the rules-signing key (scripts/rules-key.mjs). Override with RULES_PUBLIC_KEY.
   // While null, remote rules are disabled entirely. Private half: .secrets/ (never committed).
   rulesPublicKey: { kty: "EC", crv: "P-256", x: "i4iJ16P-SZ_jd8JKoGZKHxAJThFlHYBtGe5LMofjzD8", y: "GZDTYeioOqm34v-qNeQrk7QOoBIR18ApuFOpbvC9Oaw" },

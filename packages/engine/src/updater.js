@@ -1,5 +1,6 @@
 // Remote rules updater. Fetches ONE configured https URL (plus its detached
-// signature at URL + ".sig"), verifies the signature with the shipped public key,
+// signature at URL + ".sig") — or, only when that attempt fails, one fixed
+// fallback URL serving the same file from another host — verifies the signature with the shipped public key,
 // validates strictly, accepts only a newer version for the same site, and
 // otherwise keeps the last good rules. Written against injected fetch/storage
 // so it is unit-testable.
@@ -12,13 +13,17 @@ export const MIN_REFETCH_MS = 60 * 60 * 1000; // scheduled/startup refresh: at m
 export const MIN_RECHECK_MS = 60 * 60 * 1000; // broken-rule recheck: also at most hourly (as the listing promises)
 
 /**
- * @param {{site: string, bundled: object, rulesUrl: string, publicKey: object|null,
+ * @param {{site: string, bundled: object, rulesUrl: string, fallbackUrl?: string, publicKey: object|null,
  *          storage: {get: Function, set: Function}, fetchImpl: Function, now?: () => number}} deps
  */
-export function createUpdater({ site, bundled, rulesUrl, publicKey, storage, fetchImpl, now = Date.now }) {
+export function createUpdater({ site, bundled, rulesUrl, fallbackUrl = "", publicKey, storage, fetchImpl, now = Date.now }) {
   const urlCheck = validateRulesUrl(rulesUrl);
   const hasKey = isPublicJwk(publicKey);
   const configured = urlCheck.ok && !isPlaceholderUrl(rulesUrl) && hasKey;
+  // The fallback obeys the same checks and is tried only after the primary attempt fails.
+  const fallbackCheck = fallbackUrl ? validateRulesUrl(fallbackUrl) : { ok: false };
+  const sources = [urlCheck.url];
+  if (fallbackCheck.ok && !isPlaceholderUrl(fallbackUrl) && fallbackCheck.url.href !== urlCheck.url?.href) sources.push(fallbackCheck.url);
   let inflight = null;
 
   async function writeMeta(patch) {
@@ -41,31 +46,40 @@ export function createUpdater({ site, bundled, rulesUrl, publicKey, storage, fet
     }
     const current = pickRules(bundled, got[KEYS.rules], site).doc;
 
-    let status;
+    const failures = [];
+    for (const url of sources) {
+      const r = await attempt(url, current);
+      if (r.doc) {
+        await storage.set({ [KEYS.rules]: r.doc });
+        await writeMeta({ status: `updated to ${r.doc.version}`, lastAttempt: t, lastSuccess: t, version: r.doc.version });
+        return { updated: true, status: "updated", version: r.doc.version };
+      }
+      if (r.verified) {
+        await writeMeta({ status: r.status, lastAttempt: t });
+        return { updated: false, status: r.status };
+      }
+      failures.push(r.status);
+    }
+    const status = failures.length > 1 ? `${failures[0]}; fallback ${failures[1]}` : failures[0];
+    await writeMeta({ status, lastAttempt: t });
+    return { updated: false, status };
+  }
+
+  /** One source: {doc} = newer valid rules, {verified} = signed and valid but not newer, else the failure's {status}. */
+  async function attempt(url, current) {
     try {
       const init = { method: "GET", credentials: "omit", cache: "no-cache", redirect: "error", referrerPolicy: "no-referrer", signal: AbortSignal.timeout(15000) };
-      const [body, sig] = await Promise.all([
-        fetchCapped(fetchImpl, urlCheck.url.href, init, LIMITS.maxBytes),
-        fetchCapped(fetchImpl, `${urlCheck.url.href}.sig`, init, 512),
-      ]);
+      const [body, sig] = await Promise.all([fetchCapped(fetchImpl, url.href, init, LIMITS.maxBytes), fetchCapped(fetchImpl, `${url.href}.sig`, init, 512)]);
       if (!(await verifyRules(publicKey, body, new TextDecoder().decode(sig)))) throw new Error("signature does not verify");
       const text = new TextDecoder("utf-8", { fatal: true }).decode(body);
       const parsed = parseRulesText(text, { site });
-      if (!parsed.ok) {
-        status = `rejected: ${parsed.errors.slice(0, 3).join("; ")}`;
-      } else if (compareVersions(parsed.doc.version, current.version) <= 0) {
-        status = `up-to-date (${current.version})`;
-      } else {
-        await storage.set({ [KEYS.rules]: parsed.doc });
-        await writeMeta({ status: `updated to ${parsed.doc.version}`, lastAttempt: t, lastSuccess: t, version: parsed.doc.version });
-        return { updated: true, status: "updated", version: parsed.doc.version };
-      }
+      if (!parsed.ok) return { status: `rejected: ${parsed.errors.slice(0, 3).join("; ")}` };
+      if (compareVersions(parsed.doc.version, current.version) <= 0) return { verified: true, status: `up-to-date (${current.version})` };
+      return { doc: parsed.doc };
     } catch (e) {
       const msg = String(e && e.message ? e.message : e).slice(0, 120);
-      status = /signature|larger than/.test(msg) ? `rejected: ${msg}` : `fetch failed: ${msg}`;
+      return { status: /signature|larger than/.test(msg) ? `rejected: ${msg}` : `fetch failed: ${msg}` };
     }
-    await writeMeta({ status, lastAttempt: t });
-    return { updated: false, status };
   }
 
   return {
