@@ -13,6 +13,11 @@ import { TRUST_LINES } from "../packages/engine/src/trust.js";
 const ROOT = path.resolve(import.meta.dirname, "..");
 const args = process.argv.slice(2);
 const siteName = args.find((a) => !a.startsWith("--")) || "youtube";
+if (siteName === "record") {
+  // Tool product: its own kit (store/record/) and pages (docs/record/).
+  await import("./store-record.mjs");
+  process.exit(0);
+}
 const appDir = path.join(ROOT, "apps", siteName);
 const { default: site } = await import(new URL(`file:///${path.join(appDir, "site.config.js").replace(/\\/g, "/")}`).href);
 const listing = await import(new URL(`file:///${path.join(appDir, "listing.js").replace(/\\/g, "/")}`).href);

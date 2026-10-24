@@ -1,0 +1,53 @@
+{
+  "title": "Neat Record — Screen Recorder, Draw a Box",
+  "titleLength": 41,
+  "summary": "Screen recorder: record part of a web page, a tab, a window or the screen. No watermark, no account. Saved on your computer.",
+  "summaryLength": 124,
+  "description": "Draw a box. Press Record. Your video is in Downloads.\n\n• Record part of a page: drag a box over any part of a web page and record just that — pixel-sharp, even on high-DPI screens.\n• Or record a tab, a window or your whole screen.\n• Screen recorder with no watermark and no sign-up. One click to start.\n• Microphone, plus the tab's sound (or the computer's sound for a whole screen on Windows and ChromeOS), mixed in.\n• Saves straight to your Downloads folder as MP4 (or WebM where Chrome can't make MP4), with the right length and smooth seeking in common players.\n• Three quality levels in plain words: Good (720p), Better (1080p HD), Best (1440p / 4K, Pro).\n• Free forever: unlimited recordings, up to 10 minutes each. At 10:00 it stops cleanly and saves — nothing is lost.\n• Light: does nothing at all until you press Record.\n\nPro ($9.99 once, no subscription): No time limit · 1440p and 4K · Share link to your Google Drive · Webcam bubble · Click highlights · 3-2-1 countdown · Pause and resume · Trim start and end · Save as GIF (up to 30 s) · Keyboard shortcut.\nOne payment, yours to keep. Use it on up to 3 of your own computers — that is the licence term; nothing checks or counts them.\n\nNo account.\nNo watermark.\nYour video stays on your computer unless you press Share.\nOpen source.\n\nHow it works: Neat Record captures what you choose with Chrome's own screen-capture tools and encodes the video on your computer. Nothing is uploaded unless you press Share (Pro), which uploads that one video to your own Google Drive and gives you a link anyone can watch. Neat Record can only see files it created in your Drive, never anything else.\n\nFree: Tab, window, screen, draw a box · Microphone and sound · Up to 1080p HD · No watermark, no account · Unlimited recordings · 10 minutes per recording.\n\nNeat is not affiliated with or endorsed by Google.",
+  "category": "Productivity",
+  "language": "English",
+  "singlePurpose": "Record the user's screen — a tab, a window, the whole screen or a box drawn on a web page — and save the video to the user's computer.",
+  "permissionJustifications": {
+    "tabCapture": "Records the current tab (and the part of it inside a drawn box) when the user presses Record.",
+    "offscreen": "Runs the recorder (capture, encoding and saving) in an offscreen document, because a service worker cannot record media.",
+    "activeTab": "Lets the extension act only on the tab where the user clicked its icon or pressed its shortcut: to record that tab and show the recording controls there.",
+    "scripting": "Shows the draw-a-box overlay, the small recording bar, the webcam bubble and the 'saved' card on that same tab, from a file inside the extension. Only after the user clicks; never on its own.",
+    "downloads": "Saves the finished video (and trimmed copies or GIFs the user asks for) to the user's Downloads folder.",
+    "storage": "Remembers the user's choices (mode, microphone, sound, quality) and, if bought, the Pro licence key.",
+    "identity": "Only for Share (Pro): asks Google, after the user presses Share and clicks Allow, for permission to create files in the user's own Drive (drive.file scope) and uploads that one video.",
+    "web_accessible_resources (camera.html)": "The webcam bubble (Pro) is a small extension page shown on the recorded tab, so the camera appears in the recording. It is loaded with a dynamic URL.",
+    "commands (Alt+Shift+R)": "Keyboard shortcut to start and stop recording (Pro).",
+    "hostPermissions": "None."
+  },
+  "remoteCode": "No. All code is in the package. The only network use is Google Drive (googleapis.com), and only after the user presses Share.",
+  "dataUsage": {
+    "collected": "None by the extension. Videos are recorded and encoded on the user's computer and saved to their Downloads folder. (Buying Pro happens on a web page outside the extension; its data handling is in the privacy policy.)",
+    "driveShare": "When the user presses Share (Pro), the chosen video is uploaded to the user's own Google Drive using Google's drive.file scope (the extension can only see files it created) and set to 'anyone with the link can view'. The developer never receives the video, the link or any account data.",
+    "certifications": [
+      "Does not sell or transfer user data to third parties",
+      "Does not use or transfer user data for purposes unrelated to the single purpose",
+      "Does not use or transfer user data to determine creditworthiness or for lending"
+    ]
+  },
+  "oauth": {
+    "scopes": [
+      "https://www.googleapis.com/auth/drive.file"
+    ],
+    "sensitivity": "non-sensitive (Google Drive API scope table, 'Non-sensitive scopes')"
+  },
+  "payments": "Pro is a one-off $9.99 purchase through Stripe Checkout (a web page), unlocked with an offline-verified licence key. The extension never handles card details.",
+  "screenshots": [
+    "screenshots/1-draw-a-box.png",
+    "screenshots/2-panel.png",
+    "screenshots/3-recording.png",
+    "screenshots/4-free-vs-pro.png",
+    "screenshots/5-saved-and-shared.png"
+  ],
+  "promoTile": "promo-small-440x280.png",
+  "marquee": "marquee-1400x560.png",
+  "privacyPolicy": "privacy.html",
+  "privacyPolicyUrl": "https://neat-extensions.github.io/neat-extensions/record/privacy.html",
+  "homepageUrl": "https://neat-extensions.github.io/neat-extensions/record/help.html",
+  "supportUrl": "https://github.com/neat-extensions/neat-extensions/issues",
+  "sourceUrl": "https://github.com/neat-extensions/neat-extensions"
+}

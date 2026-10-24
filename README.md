@@ -1,7 +1,10 @@
 # Extension Factory
 
-A small factory for privacy-first, rules-driven Chrome extensions (Manifest V3).
-Product 1 is **Neat for YouTube** — listed as "Neat — Hide YouTube Shorts".
+A small factory for privacy-first Chrome extensions (Manifest V3).
+Product 1 is **Neat for YouTube** — listed as "Neat — Hide YouTube Shorts" (a
+*rules* product). Product 2 is **Neat Record** — "Neat Record — Screen Recorder,
+Draw a Box" (a *tool* product: no remote rules, no updater). See
+[Neat Record](#neat-record-product-2) below.
 
 The brand name is a placeholder. It lives in exactly one place:
 
@@ -295,6 +298,101 @@ Output: `finder/report-<date>.md`, committed. Each listing links to the page its
 numbers came from. `finder/data-<date>.json` (git-ignored) holds the raw
 extraction, with the exact page line behind every number. A number whose line
 isn't found in the fetched page fails the run. Reviewer names are never kept.
+
+## Neat Record (product 2)
+
+A screen recorder: one click, no account, no watermark, the video never leaves
+the computer (unless the user presses Share). Free: tab / window / screen /
+draw-a-box, mic + sound, up to 1080p, unlimited recordings of up to 10 minutes
+(at 10:00 it stops cleanly and saves). Pro ($9.99 once, offline licence key):
+no limit, 1440p/4K, Share link to the user's own Google Drive, webcam bubble,
+click highlights, 3-2-1 countdown, pause/resume, trim, GIF, keyboard shortcut.
+
+```
+apps/record/
+  app.config.js        kind "tool": ids, pinned extension key + ID, OAuth client, licence public key, Payment Link
+  listing.js           store copy
+  src/background.js    service worker: start/stop, overlay injection, downloads, Pro jobs, shortcut (event-driven only)
+  src/offscreen.js     the recorder: capture → crop/fixed size → MediaRecorder → OPFS → repair → blob: URL
+  src/writer.js        worker writing chunks into OPFS through a sync access handle (survives crashes, full disks)
+  src/content.js       in-page UI, injected on click: draw-a-box, bar, countdown, clicks, webcam bubble, saved card
+  src/popup.js, pro.js, allow.js, camera.js   panel, Pro page (paste key), one-time mic/camera allow, webcam bubble
+  src/lib/             crop maths, limiter, presets, WebM + MP4 repair/trim, GIF encoder, Drive client, tokens, icons
+  ui/                  HTML/CSS (design tokens come from src/lib/tokens.js)
+  store/               demo page + illustration used for screenshots
+packages/engine/src/licence.js   offline licence keys (ECDSA P-256), shared by extension, scripts and Worker
+services/licence-worker/         Cloudflare Worker: Stripe Checkout success → signed key → page + email
+scripts/build-tool.mjs           tool-product build (same gates, RECORD_POLICY in policy.mjs)
+scripts/store-record.mjs         store/record/ + docs/record/ (help, Pro poster, privacy), real screenshots
+scripts/extension-key.mjs        pins an extension ID (manifest "key"); private half in .secrets/
+scripts/licence-sign.mjs         generate the licence key pair; sign a key by hand
+tests/unit/record-*.spec.js, licence-worker.spec.js
+tests/e2e-record/                fake camera/mic/screen, local pages, fake Drive; no network needed
+```
+
+```bash
+npm run build -- record             # lint + unit + bundle + policy + zip (+ dist/record/ unpacked)
+npm run build -- record --release   # also refuses placeholders (OAuth client, Payment Link) and missing docs/record pages
+npm run store -- record             # store/record/ kit + docs/record/ pages, screenshots from the real extension
+npx playwright test --project=record-e2e
+RECORD_LONG=1 npx playwright test --project=record-long   # 30-minute memory/CPU run (Windows)
+```
+
+**How it records.** The popup asks the service worker to start; the worker
+injects the page UI (activeTab + `scripting.executeScript({files})`), gets a
+tab stream id (`tabCapture.getMediaStreamId`) or lets Chrome's picker choose a
+window/screen (`getDisplayMedia` in the offscreen document). Draw-a-box crops
+each frame with `VideoFrame` `visibleRect` (zero-copy, bit-exact; measured
+against canvas in `measure.spec.js`). Audio (tab/system + mic) is mixed with
+Web Audio. MediaRecorder writes MP4 (H.264/AAC, level chosen from the real frame
+size) when Chrome supports it, else WebM; each chunk goes straight into an OPFS
+file through a sync access handle in a worker, flushed every few seconds, so
+memory stays flat and a crash or full disk keeps what was recorded. On stop the
+container is repaired — MediaRecorder output has no duration and no seek index
+— *without copying*: `lib/mp4.js` (mvhd/tkhd/mdhd durations + mehd + mfra) and
+`lib/webm.js` (known sizes, Duration, Cues) return the file as a list of new
+header bytes and ranges of the raw file, which becomes a Blob of file slices
+and is saved to Downloads with no dialog; then OPFS is cleared and the
+offscreen document closed. If the repair fails, the raw file is saved as it is.
+A recording cut off by a crash is repaired and saved at the next start
+(`recover` in offscreen.js). Trim works the same way (whole keyframe fragments,
+both ends within half a second).
+
+**Zip names.** Only a build with the real OAuth client and Payment Link writes
+`dist/neat-record-<v>.zip`; otherwise the zip is
+`neat-record-<v>-not-for-upload.zip` (still fine for the first draft upload that
+gets the store's item ID — owner steps D).
+
+**Gates** (`RECORD_POLICY`): permissions exactly activeTab, downloads, identity,
+offscreen, scripting, storage, tabCapture; no host permissions; no manifest
+content scripts; one web-accessible page (`camera.html`, dynamic URL);
+`connect-src https://www.googleapis.com` only; `drive.file` only; bundle
+≤ 400 KB; `chrome.scripting` only with bundled files; no test settings in a
+non-test build. Threat model: `docs/record/SECURITY.md`.
+
+**Extension ID** is pinned by the manifest `key` (public half in
+`app.config.js`; private `.secrets/record-extension-key.pem`, backup in
+`%USERPROFILE%\Documents\Neat-keys\`): `njbhijplkhmcehhcemjofldcgpbgoopf`. The
+unpacked build keeps the key; the store zip leaves it out (the store gives a new
+item its own key on the first upload; owner steps D then put the store's
+public key into `app.config.js`, so both builds share the store's ID).
+
+**Licences.** `.secrets/licence-private.jwk` signs keys (Worker secret
+`LICENCE_PRIVATE_JWK`); the public half is in `app.config.js`. Keys live in
+`chrome.storage.sync`. "3 computers" is a licence term, not enforced.
+
+**e2e notes.** Chromium's `--use-fake-ui-for-media-stream` breaks tab capture,
+so tab/box tests launch with `--auto-accept-camera-and-microphone-capture` +
+`--auto-accept-this-tab-capture` + `--allowlisted-extension-id`, and
+window/screen tests with the fake UI. Playwright can't click the toolbar button
+(which is what grants activeTab), so the `--test` build adds a host permission
+for `127.0.0.1` only, uses `src/test-hook.js` as the worker entry, a throwaway
+licence key pair, a 30× faster free limit, an open shadow root and a fake Drive
+on `127.0.0.1:47123`. None of this can reach a normal or release build (the
+build fails if it does).
+
+Owner steps (Stripe, Cloudflare, OAuth client, trader, VAT):
+`store/RECORD-OWNER-STEPS.md`. Upload checklist: `store/record/SUBMISSION.md`.
 
 ## Still owed by the owner (manual, one-time)
 

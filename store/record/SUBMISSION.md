@@ -1,0 +1,66 @@
+# Chrome Web Store submission checklist — Neat Record 1.0.0
+
+**Do not start until `store/RECORD-OWNER-STEPS.md` A (trader + VAT) is done.**
+Dashboard: https://chrome.google.com/webstore/devconsole, signed in as
+**arcan2252@gmail.com**, publisher **Neat**. Paths are relative to
+`C:\Projects\Extension Factory\`. Copy long text from the files named, not from
+this page, so it's byte-exact. Save draft on every tab; don't press "Submit for
+review" until every tab is checked.
+
+## 0. Before uploading
+
+- [ ] `apps/record/app.config.js` has the real `oauthClientId` and `buyUrl` (not placeholders).
+- [ ] `npm run build -- record --release` passes (it refuses placeholders) and wrote `dist\neat-record-1.0.0.zip`.
+- [ ] `npm run store -- record` regenerated `store/record/` and `docs/record/`; pushed, so the privacy page is live.
+- [ ] https://neat-extensions.github.io/neat-extensions/record/privacy.html opens.
+
+## 1. Upload the release package
+
+| Step | Value |
+|---|---|
+| Upload | the draft created in owner steps D1 already exists: open it → **Package** → upload `dist\neat-record-1.0.0.zip` (only a `--release` build has this name) |
+| Check | Name `Neat Record — Screen Recorder, Draw a Box`; permissions activeTab, downloads, identity, offscreen, scripting, storage, tabCapture; **no** site access. Anything else: stop. |
+| Check | The item ID equals `extensionId` in `apps/record/app.config.js` (set from the store in owner steps D3). If not: stop. |
+
+## 2. Store listing
+
+| Field | Value |
+|---|---|
+| Title | from manifest (`store/record/title.txt`, 41 chars) |
+| Summary | from manifest (`store/record/summary.txt`) |
+| Description | all of `store/record/description.txt` |
+| Category | **Productivity** (sub-category *Tools* if asked) |
+| Language | English |
+| Store icon | `store/record/icon-128.png` |
+| Screenshots (in order) | `store/record/screenshots/1-draw-a-box.png`, `2-panel.png`, `3-recording.png`, `4-free-vs-pro.png`, `5-saved-and-shared.png` (all 1280×800) |
+| Small promo tile | `store/record/promo-small-440x280.png` |
+| Marquee | `store/record/marquee-1400x560.png` |
+| Official URL | none |
+| Homepage URL | `https://neat-extensions.github.io/neat-extensions/record/help.html` |
+| Support URL | `https://github.com/neat-extensions/neat-extensions/issues` |
+| Mature content | No |
+
+## 3. Privacy tab
+
+Copy each value from `store/record/listing.json`:
+
+- [ ] Single purpose → `singlePurpose`
+- [ ] One justification per permission → `permissionJustifications` (tabCapture, offscreen, activeTab, scripting, downloads, storage, identity). Host permissions: none.
+- [ ] Remote code → **No** (`remoteCode`)
+- [ ] Data usage: tick **nothing** collected (videos stay on the user's computer; Share sends a video to the user's own Drive, not to us). Tick the three certifications.
+- [ ] Privacy policy URL → `https://neat-extensions.github.io/neat-extensions/record/privacy.html`
+
+## 4. Distribution
+
+| Field | Value |
+|---|---|
+| Visibility | Public |
+| Regions | All regions |
+| Payments | None in the store (Pro is sold on our own Stripe page; the store only lists the free item) |
+
+## 5. Before Submit
+
+- [ ] No red errors on any tab.
+- [ ] Preview: five screenshots in order, promo tile, marquee.
+- [ ] Trader declaration shows (EU listing).
+- [ ] Optional: tick **Defer publish** to check the live listing before it goes public.
