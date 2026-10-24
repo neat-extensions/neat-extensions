@@ -25,8 +25,8 @@ export default {
   licenceProduct: "record",
   // Subjects ("sub") of refunded or leaked keys; they stop unlocking with the next release.
   revokedLicences: [],
-  // Stripe Payment Link for the $9.99 one-off. Placeholder until the owner creates it.
-  buyUrl: "https://buy.stripe.com/PAYMENT_LINK",
+  // Stripe Payment Link for the $9.99 one-off (scripts/stripe-setup.mjs; redirects to the licence Worker).
+  buyUrl: "https://buy.stripe.com/fZucN64JQ335fat9sQ9R600",
   price: "$9.99",
   helpUrl: `${PAGES}help.html`,
   proUrl: `${PAGES}pro.html`,

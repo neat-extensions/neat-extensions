@@ -5,6 +5,9 @@
     "currency": "usd",
     "unit_amount": 999,
     "tax_behavior": "inclusive",
-    "tax_code": "txcd_10202000"
+    "tax_code": "txcd_10202000",
+    "worker_url": "https://neat-licence.neat-extensions.workers.dev",
+    "payment_link_id": "plink_1UU1xZKQkt4VVAqM1hiujtsX",
+    "payment_link_url": "https://buy.stripe.com/fZucN64JQ335fat9sQ9R600"
   }
 }

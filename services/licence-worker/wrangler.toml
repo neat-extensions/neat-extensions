@@ -13,11 +13,11 @@ workers_dev = true
 
 [[kv_namespaces]]
 binding = "LICENCES"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "7f1d5255b4fc4e19a425f43773ffb0df"
 
 [vars]
 PRODUCT = "record"
 STRIPE_PRICE_ID = "price_1UU1UTKQkt4VVAqMwa6aOxWu"
-MAIL_FROM = "REPLACE_WITH_VERIFIED_SENDER@example.com"
+MAIL_FROM = "arcan2252@gmail.com"
 MAIL_FROM_NAME = "Neat"
 SUPPORT_URL = "https://github.com/neat-extensions/neat-extensions/issues"

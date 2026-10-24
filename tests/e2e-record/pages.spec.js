@@ -3,6 +3,7 @@
 import { test, expect, ROOT } from "./helpers.js";
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
+import app from "../../apps/record/app.config.js";
 
 const DOCS = path.join(ROOT, "docs", "record");
 
@@ -46,9 +47,11 @@ test("help: seven numbered steps, each with a real screenshot", () => {
   expect(html).not.toMatch(/(^|[^A-Za-z])Tab([^A-Za-z]|$)/); // "This page" everywhere a reader can see
 });
 
-test("pro: the poster and a Buy button (disabled until the Payment Link exists)", () => {
+test("pro: the poster and a Buy button that opens the Stripe Payment Link", () => {
   const html = readFileSync(path.join(DOCS, "pro.html"), "utf8");
   expect(html).toMatch(/<img class="shot poster" src="poster.png"/);
-  expect(html).toMatch(/id="buy"/);
+  expect(app.buyUrl).toMatch(/^https:\/\/buy\.stripe\.com\/[A-Za-z0-9]+$/);
+  expect(html).toContain(`<a class="btn" id="buy" href="${app.buyUrl}">Get Pro — ${app.price} once</a>`);
+  expect(html).not.toMatch(/data-pending="payment-link"/);
   expect(readFileSync(path.join(ROOT, "store", "record", "screenshots", "4-free-vs-pro.png")).equals(readFileSync(path.join(DOCS, "poster.png")))).toBe(true);
 });
