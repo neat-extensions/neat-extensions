@@ -1,0 +1,11 @@
+# Neat public website — Cloudflare Workers free plan (src/worker.js says why it's a Worker).
+# Deploy: cd services/site-worker && npx wrangler deploy
+name = "neat-site"
+main = "src/worker.js"
+compatibility_date = "2026-10-01"
+workers_dev = false
+
+routes = [
+  { pattern = "neatextensions.com", custom_domain = true },
+  { pattern = "www.neatextensions.com", custom_domain = true },
+]

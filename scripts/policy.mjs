@@ -37,7 +37,7 @@ export const RECORD_POLICY = {
   oauthScopes: ["https://www.googleapis.com/auth/drive.file"],
   connect: ["https://www.googleapis.com"],
   frameable: ["camera.html"],
-  allowedUrlHosts: ["www.googleapis.com", "neat-extensions.github.io", "buy.stripe.com", "chromewebstore.google.com", "www.w3.org"],
+  allowedUrlHosts: ["www.googleapis.com", "neatextensions.com", "buy.stripe.com", "chromewebstore.google.com", "www.w3.org"],
   // chrome.scripting only as executeScript({ files }) of our own bundled file — never func/code/CSS strings.
   scripting: "files-only",
 };

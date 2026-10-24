@@ -2,7 +2,7 @@
 // description) and by scripts/store-record.mjs. Written around the phrases
 // people actually search (finder/report-2026-10-23.md): "screen recorder",
 // "record part of screen", "screen recorder no watermark", "record screen select area".
-import { BRAND } from "../../brand.config.js";
+import { BRAND, SITE_URL } from "../../brand.config.js";
 import { FREE, PRO, TERMS } from "./src/lib/compare.js";
 import app from "./app.config.js";
 
@@ -31,8 +31,8 @@ export const proLine = `Pro (${app.price} once, no subscription): ${PRO.map((p) 
 export const disclosure = `How it works: ${BRAND} Record captures what you choose with Chrome's own screen-capture tools and encodes the video on your computer. Nothing is uploaded unless you press Share (Pro), which uploads that one video to your own Google Drive and gives you a link anyone can watch. ${BRAND} Record can only see files it created in your Drive, never anything else.`;
 
 export const sourceUrl = "https://github.com/neat-extensions/neat-extensions";
-export const siteUrl = "https://neat-extensions.github.io/neat-extensions/record/help.html";
-export const privacyPolicyUrl = "https://neat-extensions.github.io/neat-extensions/record/privacy.html";
+export const siteUrl = `${SITE_URL}record/help.html`;
+export const privacyPolicyUrl = `${SITE_URL}record/privacy.html`;
 
 export const description = [
   firstLine,

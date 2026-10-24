@@ -151,16 +151,27 @@ the same `site`, needs no newer engine than the installed one, and has a
 strictly higher `version`. Otherwise the last good rules stay in place (and
 the bundled copy is always the floor).
 
-### Publishing (GitHub Pages, `docs/` on `main`)
+### Publishing (GitHub Pages, `docs/` on `main`, served at neatextensions.com)
 
 The rules host is GitHub Pages of this repository, published from the
-`docs/` folder of `main`:
+`docs/` folder of `main`. `services/site-worker` (Cloudflare) serves the same
+files at the brand domain:
 
 | What | URL |
 |---|---|
-| rules | <https://neat-extensions.github.io/neat-extensions/youtube/rules.json> (+ `.sig`) |
-| landing page | <https://neat-extensions.github.io/neat-extensions/> |
-| privacy policy | <https://neat-extensions.github.io/neat-extensions/privacy.html> |
+| rules | <https://neatextensions.com/youtube/rules.json> (+ `.sig`) |
+| landing page | <https://neatextensions.com/> |
+| privacy policy | <https://neatextensions.com/privacy.html> |
+| Record help / Pro / privacy | <https://neatextensions.com/record/help.html>, `pro.html`, `privacy.html` |
+| licence Worker | <https://licence.neatextensions.com> |
+| email | keys@ and hello@neatextensions.com → Cloudflare Email Routing → the channel inbox |
+
+The old address <https://neat-extensions.github.io/neat-extensions/> is not a
+GitHub custom domain on purpose: YouTube builds up to 1.0.0 fetch their rules
+there with `redirect: "error"`, so it must keep serving the files itself. Its
+HTML pages carry a canonical link and send visitors on to neatextensions.com;
+the rules files are served at both. Deploy the site Worker with
+`cd services/site-worker && npx wrangler deploy` (only needed when it changes).
 
 `docs/` is generated, never edited by hand. **To fix a YouTube breakage:**
 

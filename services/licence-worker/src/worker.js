@@ -9,7 +9,7 @@
 //
 // We never see card details: Stripe handles payment (cards, Apple Pay, Google Pay).
 // Bindings (wrangler.toml): KV LICENCES; vars PRODUCT, STRIPE_PRICE_ID, MAIL_FROM,
-// MAIL_FROM_NAME, SUPPORT_URL; secrets STRIPE_SECRET_KEY, LICENCE_PRIVATE_JWK,
+// MAIL_FROM_NAME, SUPPORT_URL, PUBLIC_URL; secrets STRIPE_SECRET_KEY, LICENCE_PRIVATE_JWK,
 // BREVO_API_KEY (optional: without it the key is only shown, not emailed).
 import { encodeLicence, LICENCE_VERSION, toB64url } from "../../../packages/engine/src/licence.js";
 // Abuse guard: unknown or unpaid session ids are remembered briefly, so a script
@@ -25,6 +25,8 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (request.method !== "GET") return text(405, "Method not allowed");
+    // The old workers.dev address keeps working (older Payment Link redirects, bookmarks).
+    if (env.PUBLIC_URL && url.hostname.endsWith(".workers.dev")) return Response.redirect(`${env.PUBLIC_URL}${url.pathname}${url.search}`, 301);
     if (url.pathname === "/") return text(200, `${BRAND} licence service`);
     if (url.pathname !== "/success") return text(404, "Not found");
     const missing = ["STRIPE_SECRET_KEY", "LICENCE_PRIVATE_JWK", "STRIPE_PRICE_ID"].filter((k) => !env[k] || /REPLACE/.test(env[k]));

@@ -1,8 +1,8 @@
 // App config for "Neat Record". Record is a TOOL product, not a rules product:
 // no remote rules, no updater, no alarms. Everything here is plain data.
-import { BRAND } from "../../brand.config.js";
+import { BRAND, SITE_URL } from "../../brand.config.js";
 
-const PAGES = "https://neat-extensions.github.io/neat-extensions/record/";
+const PAGES = `${SITE_URL}record/`;
 
 export default {
   kind: "tool",
@@ -24,7 +24,9 @@ export default {
   licencePublicKey: { kty: "EC", crv: "P-256", x: "o4PFK7bPn2hjfql_HtvDGUXXnExckr1gBDav74IWKcU", y: "BfGeyMQjunl63SIfkzdg1EAIg3rUC0uVGzJoORLRqE0" },
   licenceProduct: "record",
   // Subjects ("sub") of refunded or leaked keys; they stop unlocking with the next release.
-  revokedLicences: [],
+  revokedLicences: [
+    "O3eAY1aQsiU9rc8E", // 2026-10-24 owner's own live $9.99 test purchase
+  ],
   // Stripe Payment Link for the $9.99 one-off (scripts/stripe-setup.mjs; redirects to the licence Worker).
   buyUrl: "https://buy.stripe.com/fZucN64JQ335fat9sQ9R600",
   price: "$9.99",

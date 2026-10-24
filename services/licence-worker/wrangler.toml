@@ -9,7 +9,8 @@
 name = "neat-licence"
 main = "src/worker.js"
 compatibility_date = "2026-10-01"
-workers_dev = true
+workers_dev = true # kept: the old address 301s to PUBLIC_URL
+routes = [{ pattern = "licence.neatextensions.com", custom_domain = true }]
 
 [[kv_namespaces]]
 binding = "LICENCES"
@@ -21,3 +22,4 @@ STRIPE_PRICE_ID = "price_1UU1UTKQkt4VVAqMwa6aOxWu"
 MAIL_FROM = "arcan2252@gmail.com"
 MAIL_FROM_NAME = "Neat"
 SUPPORT_URL = "https://github.com/neat-extensions/neat-extensions/issues"
+PUBLIC_URL = "https://licence.neatextensions.com"

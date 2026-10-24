@@ -1,6 +1,6 @@
 // Store listing copy for Neat for YouTube. Used by the build (manifest
 // description) and by scripts/store.mjs (store/ kit). Keep it truthful.
-import { BRAND } from "../../brand.config.js";
+import { BRAND, SITE_URL } from "../../brand.config.js";
 import { TRUST_LINES } from "../../packages/engine/src/trust.js";
 
 export const title = `${BRAND} — Hide YouTube Shorts`;
@@ -27,8 +27,8 @@ export const disclosure =
 // Public source repository (backs the "Open source." trust line and the privacy-policy contact).
 export const sourceUrl = "https://github.com/neat-extensions/neat-extensions";
 
-// Landing page + privacy policy, served by GitHub Pages from docs/ (npm run rules:publish).
-export const siteUrl = "https://neat-extensions.github.io/neat-extensions/";
+// Landing page + privacy policy: docs/ (npm run rules:publish), served at SITE_URL.
+export const siteUrl = SITE_URL;
 export const privacyPolicyUrl = `${siteUrl}privacy.html`;
 
 export const description = [firstLine, "", ...benefits.map((b) => `• ${b}`), "", ...TRUST_LINES, "", disclosure, "", `${BRAND} is not affiliated with or endorsed by YouTube or Google.`].join("\n");

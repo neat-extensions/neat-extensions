@@ -7,7 +7,7 @@ import { chromium } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { mkdir, writeFile, readFile, rm, cp } from "node:fs/promises";
 import path from "node:path";
-import { BRAND } from "../brand.config.js";
+import { BRAND, movedHead } from "../brand.config.js";
 import { TRUST_LINES } from "../packages/engine/src/trust.js";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
@@ -87,7 +87,8 @@ footer{margin-top:60px;font-size:14px}`;
 // ---------------------------------------------------------------- privacy policy
 const privacy = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(site.productName)} — Privacy policy</title><style>${pageCss}</style></head>
+<title>${esc(site.productName)} — Privacy policy</title>
+${movedHead("privacy.html")}<style>${pageCss}</style></head>
 <body><main>
 <p class="brand"><img src="site/icon-128.png" alt="">${esc(site.productName)}</p>
 <h1>Privacy policy</h1>
@@ -116,6 +117,7 @@ await writeFile(path.join(SITE_OUT, "privacy.html"), privacy.replace('src="site/
 const landing = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>How to hide YouTube Shorts — ${esc(site.productName)}</title>
+${movedHead("")}
 <meta name="description" content="${esc(listing.summary)}">
 <link rel="icon" href="icon-128.png">
 <style>${pageCss}</style></head>

@@ -150,4 +150,13 @@ test.describe("licence Worker", () => {
     expect((await get("/admin", env())).status).toBe(404);
     expect((await worker.fetch(new Request("https://x.dev/success", { method: "POST" }), env(), null)).status).toBe(405);
   });
+
+  test("the workers.dev address redirects to the custom domain, query intact", async () => {
+    stub();
+    const res = await get(`/success?session_id=${SESSION}`, env({ PUBLIC_URL: "https://licence.example.com" }));
+    expect(res.status).toBe(301);
+    expect(res.headers.get("Location")).toBe(`https://licence.example.com/success?session_id=${SESSION}`);
+    const direct = await worker.fetch(new Request(`https://licence.example.com/success?session_id=${SESSION}`), env({ PUBLIC_URL: "https://licence.example.com" }), null);
+    expect(direct.status).toBe(200);
+  });
 });

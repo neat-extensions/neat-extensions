@@ -2,8 +2,9 @@
 // Idempotent: run it as often as you like, it only creates what's missing.
 //
 //   node scripts/stripe-setup.mjs                      product + one-time USD 9.99 price
-//   WORKER_URL=https://neat-licence.<you>.workers.dev node scripts/stripe-setup.mjs
+//   WORKER_URL=https://licence.neatextensions.com node scripts/stripe-setup.mjs
 //                                                      ...and the Payment Link redirecting to <WORKER_URL>/success
+//                                                      (an existing link is re-pointed, never replaced)
 //   node scripts/stripe-setup.mjs --check              read-only: lists product, price and link back from the API
 //
 // Key: .secrets/stripe-restricted.key (git-ignored; or STRIPE_KEY_FILE). Restricted key with
@@ -104,14 +105,17 @@ async function findPrice(stripe, product) {
   return (await listAll(stripe, "/prices", { product: product.id, active: true })).find(priceMatches) || null;
 }
 
+/** Our active link for this price, preferring one that already redirects to `url`. */
 async function findLink(stripe, priceId, url) {
+  let fallback = null;
   for (const link of (await listAll(stripe, "/payment_links", { active: true })).filter(isOurs)) {
-    const ac = link.after_completion;
-    if (!ac || ac.type !== "redirect" || ac.redirect.url !== url) continue;
     const items = await listAll(stripe, `/payment_links/${link.id}/line_items`);
-    if (items.length === 1 && items[0].price.id === priceId) return link;
+    if (items.length !== 1 || items[0].price.id !== priceId) continue;
+    const ac = link.after_completion;
+    if (ac && ac.type === "redirect" && ac.redirect.url === url) return link;
+    fallback = fallback || link;
   }
-  return null;
+  return fallback;
 }
 
 async function ensureProduct(stripe) {
@@ -141,8 +145,14 @@ async function ensureProduct(stripe) {
 async function ensureLink(stripe, price, workerUrl) {
   const url = successUrl(workerUrl);
   let link = await findLink(stripe, price.id, url);
-  if (link) {
+  if (link && link.after_completion.redirect && link.after_completion.redirect.url === url) {
     console.log(`payment link ${link.id} already set up`);
+    return link;
+  }
+  if (link) {
+    // New Worker address: move the redirect, keep the link (its buy.stripe.com URL is in the extension and pages).
+    link = await stripe("POST", `/payment_links/${link.id}`, { after_completion: { type: "redirect", redirect: { url } } });
+    console.log(`payment link ${link.id} now redirects to ${url}`);
     return link;
   }
   // Payment Links always ask for the buyer's email; the Worker reads it from the Checkout Session.

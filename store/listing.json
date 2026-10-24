@@ -22,7 +22,7 @@
   "promoTile": "promo-small-440x280.png",
   "marquee": "marquee-1400x560.png",
   "privacyPolicy": "privacy.html",
-  "privacyPolicyUrl": "https://neat-extensions.github.io/neat-extensions/privacy.html",
-  "homepageUrl": "https://neat-extensions.github.io/neat-extensions/",
+  "privacyPolicyUrl": "https://neatextensions.com/privacy.html",
+  "homepageUrl": "https://neatextensions.com/",
   "sourceUrl": "https://github.com/neat-extensions/neat-extensions"
 }

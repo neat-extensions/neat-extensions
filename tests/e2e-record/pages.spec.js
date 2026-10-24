@@ -4,6 +4,7 @@ import { test, expect, ROOT } from "./helpers.js";
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import app from "../../apps/record/app.config.js";
+import { SITE_URL } from "../../brand.config.js";
 
 const DOCS = path.join(ROOT, "docs", "record");
 
@@ -17,8 +18,8 @@ for (const page of ["help.html", "pro.html", "privacy.html"]) {
       if (/^https?:/.test(u)) {
         const res = await request.get(u, { maxRedirects: 5, timeout: 30_000, failOnStatusCode: false });
         // The published pages themselves are checked locally (they may not be deployed yet).
-        if (u.startsWith("https://neat-extensions.github.io/neat-extensions/record/")) {
-          expect(existsSync(path.join(DOCS, u.split("/record/")[1].split("#")[0])), u).toBe(true);
+        if (u.startsWith(`${SITE_URL}record/`)) {
+          expect(existsSync(path.join(DOCS, u.slice(`${SITE_URL}record/`.length).split("#")[0])), u).toBe(true);
           continue;
         }
         expect(res.status(), u).toBeLessThan(400);

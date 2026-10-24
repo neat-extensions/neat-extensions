@@ -11,7 +11,7 @@ import { execFileSync } from "node:child_process";
 import { mkdir, writeFile, readFile, rm, cp } from "node:fs/promises";
 import path from "node:path";
 import http from "node:http";
-import { BRAND } from "../brand.config.js";
+import { BRAND, movedHead } from "../brand.config.js";
 import app from "../apps/record/app.config.js";
 import * as listing from "../apps/record/listing.js";
 import { PRESETS, sizeLabel } from "../apps/record/src/lib/presets.js";
@@ -111,7 +111,8 @@ img.shot{display:block;width:100%;height:auto;border-radius:16px;box-shadow:var(
 // ---------------------------------------------------------------- privacy policy
 const privacy = (home) => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(app.productName)} — Privacy policy</title><style>${pageCss}</style></head>
+<title>${esc(app.productName)} — Privacy policy</title>
+${movedHead("record/privacy.html")}<style>${pageCss}</style></head>
 <body><main>
 <a class="brand" href="${home}"><img src="icon-128.png" alt="">${esc(app.productName)}</a>
 <h1>Privacy policy</h1>
@@ -214,6 +215,7 @@ const WAYS = [
 const help = (imgs) => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>How to record your screen — ${esc(app.productName)}</title>
+${movedHead("record/help.html")}
 <meta name="description" content="Record part of a web page, your whole screen, a window or the page you're on, in Chrome. Draw a box, press Record, your video is in Downloads.">
 <link rel="icon" href="icon-128.png">
 <style>${pageCss}
@@ -259,6 +261,7 @@ ${PRESETS.map((p) => `<div class="level"><b>${esc(p.label)}${p.pro ? '<span clas
 const proPage = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(app.productName)} Pro — Free vs Pro</title>
+${movedHead("record/pro.html")}
 <meta name="description" content="${esc(app.productName)} is free forever. Pro adds no time limit, 4K, a Google Drive share link, webcam, trim and GIF for ${esc(app.price)} once.">
 <link rel="icon" href="icon-128.png">
 <style>${pageCss}

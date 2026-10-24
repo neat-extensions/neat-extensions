@@ -12,7 +12,7 @@ review" until every tab is checked.
 - [ ] `apps/record/app.config.js` has the real `oauthClientId` and `buyUrl` (not placeholders).
 - [ ] `npm run build -- record --release` passes (it refuses placeholders) and wrote `dist\neat-record-1.0.0.zip`.
 - [ ] `npm run store -- record` regenerated `store/record/` and `docs/record/`; pushed, so the privacy page is live.
-- [ ] https://neat-extensions.github.io/neat-extensions/record/privacy.html opens.
+- [ ] https://neatextensions.com/record/privacy.html opens.
 
 ## 1. Upload the release package
 
@@ -36,7 +36,7 @@ review" until every tab is checked.
 | Small promo tile | `store/record/promo-small-440x280.png` |
 | Marquee | `store/record/marquee-1400x560.png` |
 | Official URL | none |
-| Homepage URL | `https://neat-extensions.github.io/neat-extensions/record/help.html` |
+| Homepage URL | `https://neatextensions.com/record/help.html` |
 | Support URL | `https://github.com/neat-extensions/neat-extensions/issues` |
 | Mature content | No |
 
@@ -48,7 +48,7 @@ Copy each value from `store/record/listing.json`:
 - [ ] One justification per permission → `permissionJustifications` (tabCapture, offscreen, activeTab, scripting, downloads, storage, identity). Host permissions: none.
 - [ ] Remote code → **No** (`remoteCode`)
 - [ ] Data usage: tick **nothing** collected (videos stay on the user's computer; Share sends a video to the user's own Drive, not to us). Tick the three certifications.
-- [ ] Privacy policy URL → `https://neat-extensions.github.io/neat-extensions/record/privacy.html`
+- [ ] Privacy policy URL → `https://neatextensions.com/record/privacy.html`
 
 ## 4. Distribution
 

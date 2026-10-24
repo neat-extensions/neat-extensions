@@ -33,8 +33,8 @@ Neat Record sells something (Pro), so in the EU you are a **trader**.
 3. **Payment Links** → **+ New**:
    - Product: Neat Record Pro, quantity fixed at 1.
    - **After payment** tab → **Don't show confirmation page** → **Redirect customers to your website** →
-     `https://neat-licence.<your-subdomain>.workers.dev/success?session_id={CHECKOUT_SESSION_ID}`
-     (exactly like that, braces included; the subdomain comes from step C).
+     `https://licence.neatextensions.com/success?session_id={CHECKOUT_SESSION_ID}`
+     (exactly like that, braces included). Done for you: `WORKER_URL=https://licence.neatextensions.com npm run stripe:setup`.
    - Options: **Collect customers' email addresses** = on (it's on by default).
    - Payment methods: Settings → Payment methods → keep **Cards**, turn on **Apple Pay**, **Google Pay** (and **PayPal** if offered in your country).
    - **Create link** → copy `https://buy.stripe.com/…` → **send me** (it goes in `apps/record/app.config.js → buyUrl`).
@@ -62,7 +62,7 @@ Neat Record sells something (Pro), so in the EU you are a **trader**.
    - **SMTP & API** → **API keys** → **Generate a new API key** → copy.
    - `npx wrangler secret put BREVO_API_KEY` → paste. Put the sender address in `wrangler.toml → MAIL_FROM`.
    - Without Brevo the key is still shown on the success page (and the page tells buyers to copy it).
-6. `npx wrangler deploy` → it prints `https://neat-licence.<subdomain>.workers.dev` → **send me** the address, and use it in B3.
+6. `npx wrangler deploy` → it prints `https://neat-licence.<subdomain>.workers.dev` and `licence.neatextensions.com (custom domain)`. The public address is **https://licence.neatextensions.com**; the workers.dev one redirects there.
 7. Test with Stripe **test mode**: make a test Payment Link the same way (redirect to the same Worker), pay with card `4242 4242 4242 4242`, any future date, any CVC → you land on the success page with a key. (Use test-mode keys `rk_test_…`/`price_…` for this run, then switch the secrets to live.)
 
 ## D. First draft upload, then the OAuth client for Share to Drive
@@ -81,9 +81,9 @@ its ID from the store on its first upload (the store zip carries no `key`). So:
 5. ☰ → **APIs & Services** → **Library** → search **Google Drive API** → **Enable**.
 6. **Google Auth Platform** (APIs & Services → OAuth consent screen) → **Branding**:
    app name `Neat Record`, support email, logo (`apps\record\icons\icon-128.png`), home page
-   `https://neat-extensions.github.io/neat-extensions/record/help.html`, privacy policy
-   `https://neat-extensions.github.io/neat-extensions/record/privacy.html`, authorised domain
-   `neat-extensions.github.io` → **Save**. (The pages go live when I push them.)
+   `https://neatextensions.com/record/help.html`, privacy policy
+   `https://neatextensions.com/record/privacy.html`, authorised domain
+   `neatextensions.com` → **Save**. (The pages go live when I push them.)
 7. **Data access** → **Add or remove scopes** → tick `.../auth/drive.file` ("See, edit, create and
    delete only the specific Google Drive files you use with this app") → **Update** → **Save**.
    Google lists `drive.file` as **non-sensitive**: no security assessment, only the light brand check.
@@ -100,6 +100,6 @@ its ID from the store on its first upload (the store zip carries no `key`). So:
 
 ## F. Ongoing
 
-- **Abuse guard** (once, after C): Cloudflare dashboard → your domain-less account → **Security** → **WAF** → **Rate limiting rules** (free plan allows one) → *If* URI path equals `/success` → *rate* 20 requests per 10 seconds per IP → *action* Block for 10 seconds. (If your plan shows no WAF for `workers.dev`, skip: the Worker also caches unknown ids itself.)
-- **Refunds / leaked keys:** in Cloudflare → **Workers & Pages** → **KV** → `LICENCES` → find `session:<Checkout Session id>` (from the Stripe payment) → copy its `sub` → send it to me; it goes into `revokedLicences` in `apps/record/app.config.js` and stops unlocking with the next release.
+- **Abuse guard** (once, after C): Cloudflare dashboard → **neatextensions.com** → **Security** → **WAF** → **Rate limiting rules** (free plan allows one) → *If* URI path equals `/success` → *rate* 20 requests per 10 seconds per IP → *action* Block for 10 seconds. (Hostname equals `licence.neatextensions.com`. The Worker also caches unknown ids itself.)
+- **Refunds / leaked keys:** in Cloudflare → **Workers & Pages** → **KV** → `LICENCES` → find `session:<Checkout Session id>` (from the Stripe payment) → copy its `sub` → send it to me (or just tell me the date and I read it from KV); it goes into `revokedLicences` in `apps/record/app.config.js` and stops unlocking with the next release.
 - **Deleting a buyer's record** on request: delete that `session:…` key in KV.

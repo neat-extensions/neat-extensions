@@ -55,9 +55,9 @@ Upload screenshots in that order (drag to reorder if needed: 1 → 2 → 3).
 
 | Field | Value |
 |---|---|
-| Official URL | **None** (requires a Search Console–verified domain; github.io isn't yours to verify) |
-| Homepage URL | `https://neat-extensions.github.io/neat-extensions/` |
-| Support URL | `https://neat-extensions.github.io/neat-extensions/` |
+| Official URL | `https://neatextensions.com` once it is verified in Google Search Console with the channel account (optional; owner step) |
+| Homepage URL | `https://neatextensions.com/` |
+| Support URL | `https://neatextensions.com/` |
 | Mature content | **No** |
 
 → **Save draft.**
@@ -83,7 +83,7 @@ Upload screenshots in that order (drag to reorder if needed: 1 → 2 → 3).
 | Certification 1 | ☑ I do not sell or transfer user data to third parties, outside of the approved use cases |
 | Certification 2 | ☑ I do not use or transfer user data for purposes that are unrelated to my item's single purpose |
 | Certification 3 | ☑ I do not use or transfer user data to determine creditworthiness or for lending purposes |
-| Privacy policy URL | `https://neat-extensions.github.io/neat-extensions/privacy.html` |
+| Privacy policy URL | `https://neatextensions.com/privacy.html` |
 
 → **Save draft.**
 
@@ -112,7 +112,7 @@ contact email, Submit stays disabled.
 
 - [ ] Every tab shows no red errors; "Why can't I submit?" (if shown) lists nothing.
 - [ ] Store listing preview: title, summary, three screenshots in order, promo tiles.
-- [ ] Privacy URL opens: https://neat-extensions.github.io/neat-extensions/privacy.html
+- [ ] Privacy URL opens: https://neatextensions.com/privacy.html
 - [ ] Item ID sent to Claude.
 
 Optional on submit: *Defer publish* (publish manually after approval) lets you
