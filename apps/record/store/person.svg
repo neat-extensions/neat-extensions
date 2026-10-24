@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" role="img" aria-label="A happy person in a suit holding a laptop">
+  <circle cx="160" cy="176" r="140" fill="#ffe4e2"/>
+  <path d="M258 64l5 13 13 5-13 5-5 13-5-13-13-5 13-5z" fill="#d6363c"/>
+  <path d="M62 112l3.5 9 9 3.5-9 3.5-3.5 9-3.5-9-9-3.5 9-3.5z" fill="#d6363c" opacity=".7"/>
+  <path d="M66 320c5-80 42-106 94-106s89 26 94 106z" fill="#26314a"/>
+  <path d="M140 216l20 46 20-46z" fill="#ffffff"/>
+  <path d="M155 226h10l3 34-8 12-8-12z" fill="#d6363c"/>
+  <path d="M146 186h28v34h-28z" fill="#e9b892"/>
+  <circle cx="114" cy="152" r="9" fill="#f2c4a0"/>
+  <circle cx="206" cy="152" r="9" fill="#f2c4a0"/>
+  <circle cx="160" cy="146" r="46" fill="#f2c4a0"/>
+  <path d="M113 146c-3-40 24-54 48-54 30 0 51 18 46 56-6-18-22-28-46-28-22 0-38 10-48 26z" fill="#3b2a20"/>
+  <path d="M138 146q7-8 14 0M168 146q7-8 14 0" fill="none" stroke="#3b2a20" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="134" cy="163" r="7" fill="#e5484d" opacity=".25"/>
+  <circle cx="186" cy="163" r="7" fill="#e5484d" opacity=".25"/>
+  <path d="M141 164q19 24 38 0z" fill="#ffffff" stroke="#3b2a20" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M90 228a8 8 0 0 1 8-8h124a8 8 0 0 1 8 8v76H90z" fill="#e3e6ec"/>
+  <path d="M74 304h172l14 16H60z" fill="#c4c8d0"/>
+  <g fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round"><path d="M142 250v-8h8M170 242h8v8M178 266v8h-8M150 274h-8v-8"/></g>
+  <circle cx="160" cy="258" r="8" fill="#d6363c"/>
+  <circle cx="96" cy="300" r="13" fill="#f2c4a0"/>
+  <circle cx="224" cy="300" r="13" fill="#f2c4a0"/>
+  <circle cx="250" cy="206" r="18" fill="#18794e"/>
+  <path d="M241 206l6 6 12-12" fill="none" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

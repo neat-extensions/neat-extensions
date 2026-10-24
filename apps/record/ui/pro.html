@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{PRODUCT}} Pro</title>
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="page.css">
+  <script src="pro.js" defer></script>
+</head>
+<body>
+  <main class="pro-page">
+    <header class="brandrow"><img src="icons/icon-48.png" alt="" width="32" height="32"><h1>{{PRODUCT}} Pro</h1></header>
+    <div class="cols">
+      <section class="col"><h2>Free</h2><ul id="free" class="ticks"></ul></section>
+      <section class="col pro"><h2>Pro <span class="price" id="price"></span></h2><ul id="pro" class="ticks"></ul></section>
+    </div>
+    <div id="buy-area" class="buy-area"></div>
+    <section class="key" id="key-area">
+      <h3 id="key-title">Already bought? Paste your key</h3>
+      <textarea id="key" rows="3" spellcheck="false" autocomplete="off" aria-label="Licence key"></textarea>
+      <div class="key-row"><button class="big" id="unlock">Unlock Pro</button><span class="muted small" id="key-status" role="status"></span></div>
+    </section>
+    <p class="muted small" id="terms"></p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Busy test page</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; font: 18px/1.5 system-ui, sans-serif; background: #fff; }
+  canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  /* Draw-a-box target: a green square with a 4-px blue border at a known place. */
+  #target { position: fixed; left: 200px; top: 120px; width: 400px; height: 240px; box-sizing: border-box; border: 4px solid #0000ff; background: #00ff00; }
+  body.plain canvas { display: none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="target"></div>
+<script>
+  if (location.search.includes("plain")) document.body.classList.add("plain");
+  // Typical "real use" content: moving shapes and scrolling text, redrawn every frame.
+  const c = document.getElementById("c");
+  const g = c.getContext("2d");
+  const lines = Array.from({ length: 60 }, (_, i) => `Line ${i + 1}: the quick brown fox jumps over the lazy dog — ${"abcdefghij".repeat(3)}`);
+  let t = 0;
+  function frame() {
+    const w = (c.width = innerWidth * devicePixelRatio);
+    const h = (c.height = innerHeight * devicePixelRatio);
+    g.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    g.fillStyle = "#f7f7f9";
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = "#222";
+    g.font = "16px system-ui";
+    lines.forEach((l, i) => g.fillText(l, 640, ((i * 26 - t * 1.5) % 1600 + 1600) % 1600));
+    for (let i = 0; i < 12; i++) {
+      g.fillStyle = `hsl(${(i * 30 + t) % 360},70%,55%)`;
+      g.beginPath();
+      g.arc(100 + ((t * (i + 1)) % (innerWidth - 200)), 420 + 60 * Math.sin(t / 20 + i), 30, 0, 7);
+      g.fill();
+    }
+    g.fillStyle = "#000";
+    g.font = "bold 40px system-ui";
+    g.fillText(String(t), 30, innerHeight - 40);
+    t++;
+    requestAnimationFrame(frame);
+  }
+  if (!document.body.classList.contains("plain")) frame();
+  // A quiet tone, so tab audio has something to record.
+  addEventListener("load", () => {
+    try {
+      const ac = new AudioContext();
+      const o = ac.createOscillator();
+      const v = ac.createGain();
+      v.gain.value = 0.05;
+      o.connect(v).connect(ac.destination);
+      o.start();
+    } catch {}
+  });
+</script>
+</body>
+</html>

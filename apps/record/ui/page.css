@@ -1,0 +1,40 @@
+/* Full extension pages: Pro and the one-time Allow page. */
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--surface-2); color: var(--text); font: 16px/1.5 var(--font); min-height: 100vh; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+[hidden] { display: none !important; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.center { display: grid; place-items: center; padding: 24px; }
+
+.big { display: inline-flex; align-items: center; justify-content: center; height: 48px; padding: 0 24px; border: 0; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font: 650 16px/1 var(--font); text-decoration: none; cursor: pointer; box-shadow: 0 6px 16px rgba(214, 54, 60, .3); }
+.big:hover { background: var(--accent-hover); }
+.big:disabled, .big.disabled { opacity: .55; cursor: default; box-shadow: none; }
+.linklike { border: 0; background: none; color: var(--muted); text-decoration: underline; cursor: pointer; font: inherit; font-size: 13px; padding: 0; }
+
+.allow { max-width: 440px; text-align: center; background: var(--surface); padding: 40px 32px; border-radius: 24px; box-shadow: var(--shadow-lg); display: grid; justify-items: center; gap: 8px; }
+.allow h1 { font-size: 24px; margin: 8px 0 0; letter-spacing: -0.01em; }
+.allow p { margin: 0 0 8px; }
+
+.pro-page { max-width: 760px; margin: 0 auto; padding: 40px 24px 64px; display: grid; gap: 24px; }
+.brandrow { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 18px; }
+.brandrow h1 { margin: 0; font-size: 20px; }
+.brandrow img { border-radius: 8px; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 640px) { .cols { grid-template-columns: 1fr; } }
+.col { background: var(--surface); border-radius: 20px; padding: 24px; box-shadow: var(--shadow); border: 1px solid var(--border); }
+.col.pro { border: 2px solid var(--accent); }
+.col h2 { margin: 0 0 16px; font-size: 22px; display: flex; align-items: baseline; justify-content: space-between; }
+.price { font-size: 15px; color: var(--accent); font-weight: 650; }
+.ticks { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.ticks li { display: flex; align-items: center; gap: 12px; }
+.ticks svg { flex: none; color: var(--muted); }
+.col.pro .ticks svg { color: var(--accent); }
+.buy-area { display: grid; justify-items: center; gap: 8px; text-align: center; }
+.buy-area p { margin: 0; }
+.on { display: flex; align-items: center; gap: 8px; color: #18794e; font-size: 18px; }
+.key { background: var(--surface); border-radius: 20px; padding: 24px; border: 1px solid var(--border); display: grid; gap: 12px; }
+.key h3 { margin: 0; font-size: 16px; }
+.key textarea { width: 100%; resize: vertical; padding: 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: 13px/1.4 ui-monospace, "Cascadia Mono", Consolas, monospace; }
+.key-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }

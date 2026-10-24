@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{PRODUCT}}</title>
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="popup.css">
+  <script src="popup.js" defer></script>
+</head>
+<body>
+  <header class="top">
+    <img src="icons/icon-32.png" alt="" width="20" height="20">
+    <h1>{{PRODUCT}}</h1>
+    <a class="tiny" id="help" href="#" title="How it works" aria-label="Help: how it works">?</a>
+    <a class="tiny pro" id="pro" href="#">Pro</a>
+  </header>
+
+  <main id="idle" class="panel">
+    <div class="modes" role="radiogroup" aria-label="What to record" id="modes"></div>
+    <div class="toggles" id="toggles" role="group" aria-label="Options"></div>
+    <div class="quality">
+      <div class="seg" role="radiogroup" aria-label="Quality" id="quality"></div>
+      <p class="caption" id="quality-caption" aria-live="polite"></p>
+    </div>
+    <div class="go">
+      <button class="record" id="record" aria-describedby="message"><span class="record-dot" aria-hidden="true"></span><span class="record-label">Record</span></button>
+      <p class="message" id="message" role="status"></p>
+    </div>
+  </main>
+
+  <main id="live" class="panel" hidden>
+    <p class="live-label" id="live-label" aria-live="polite">Recording</p>
+    <p class="live-time" id="live-time" role="timer">0:00</p>
+    <div class="live-actions">
+      <button class="pill" id="pause"></button>
+      <button class="pill stop" id="stop">Stop</button>
+    </div>
+    <p class="caption" id="live-hint">Or press Stop on the bar in the page.</p>
+  </main>
+
+  <main id="done" class="panel" hidden>
+    <div class="done-head"><span class="ok" id="done-badge"></span><h2 id="done-title" aria-live="polite">Saved to Downloads</h2></div>
+    <p class="caption" id="done-meta"></p>
+    <div class="done-actions" id="done-actions"></div>
+    <p class="caption" id="done-toast" role="status"></p>
+    <div class="linkrow" id="done-linkrow" hidden><input class="link" id="done-link" readonly aria-label="Share link"><button class="act copy" id="copy">Copy</button></div>
+    <button class="new" id="new">Record again</button>
+  </main>
+</body>
+</html>

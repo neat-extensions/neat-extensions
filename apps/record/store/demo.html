@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Weekend trip planner</title>
+<style>
+  :root { --ink: #1c1d22; --muted: #6a6c76; --line: #e7e8ec; --brand: #2f6fde; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.5 system-ui, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: #f4f5f8; }
+  header { display: flex; align-items: center; gap: 24px; height: 64px; padding: 0 40px; background: #fff; border-bottom: 1px solid var(--line); }
+  header b { font-size: 18px; }
+  header nav { display: flex; gap: 20px; color: var(--muted); font-size: 15px; }
+  main { display: grid; grid-template-columns: 1fr 360px; gap: 24px; padding: 32px 40px; }
+  .map { position: relative; height: 420px; border-radius: 16px; overflow: hidden; background: linear-gradient(160deg, #cfe7d6, #b9dcc4 40%, #a9cfe9 41%, #9cc6e6); }
+  .map i { position: absolute; display: block; background: #fff; opacity: .85; border-radius: 4px; }
+  .pin { position: absolute; width: 28px; height: 28px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: #e5484d; box-shadow: 0 4px 10px rgba(0,0,0,.2); }
+  .route { position: absolute; left: 120px; top: 120px; width: 420px; height: 180px; border: 4px dashed rgba(47, 111, 222, .8); border-radius: 50% / 40%; border-left-color: transparent; border-bottom-color: transparent; }
+  h1 { margin: 0 0 8px; font-size: 28px; }
+  .cards { display: grid; gap: 16px; }
+  .card { background: #fff; border-radius: 14px; padding: 16px 18px; border: 1px solid var(--line); }
+  .card small { color: var(--muted); }
+  .row { display: flex; justify-content: space-between; margin-top: 6px; }
+  .tag { display: inline-block; padding: 2px 10px; border-radius: 999px; background: #eaf1fd; color: var(--brand); font-size: 13px; }
+  .days { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 24px; }
+  .day { background: #fff; border-radius: 14px; padding: 16px; border: 1px solid var(--line); }
+  .bar { height: 8px; border-radius: 999px; background: #edf0f5; margin-top: 10px; overflow: hidden; }
+  .bar span { display: block; height: 100%; background: var(--brand); }
+</style>
+</head>
+<body>
+<header><b>Wayfare</b><nav><span>Trips</span><span>Places</span><span>Budget</span></nav></header>
+<main>
+  <section>
+    <h1>Weekend in the lakes</h1>
+    <div class="map" id="map">
+      <i style="left:40px;top:300px;width:520px;height:10px;transform:rotate(-12deg)"></i>
+      <i style="left:300px;top:40px;width:10px;height:360px;transform:rotate(18deg)"></i>
+      <i style="left:520px;top:80px;width:300px;height:8px;transform:rotate(30deg)"></i>
+      <div class="route"></div>
+      <div class="pin" style="left:110px;top:270px"></div>
+      <div class="pin" style="left:520px;top:110px;background:#2f6fde"></div>
+      <div class="pin" style="left:640px;top:300px;background:#18794e"></div>
+    </div>
+    <div class="days">
+      <div class="day"><b>Friday</b><br><small>Drive up · 3 h 10 min</small><div class="bar"><span style="width:40%"></span></div></div>
+      <div class="day"><b>Saturday</b><br><small>Lake walk · 11 km</small><div class="bar"><span style="width:75%"></span></div></div>
+      <div class="day"><b>Sunday</b><br><small>Boat trip · 2 h</small><div class="bar"><span style="width:55%"></span></div></div>
+    </div>
+  </section>
+  <aside class="cards">
+    <div class="card"><span class="tag">Stay</span><div class="row"><b>Lakeside cabin</b><span>£148</span></div><small>2 nights · sleeps 4</small></div>
+    <div class="card"><span class="tag">Food</span><div class="row"><b>Harbour kitchen</b><span>£62</span></div><small>Saturday 7:30 pm</small></div>
+    <div class="card"><span class="tag">Do</span><div class="row"><b>Boat hire</b><span>£40</span></div><small>Sunday 10:00 am</small></div>
+    <div class="card"><div class="row"><b>Total</b><b>£250</b></div><small>£62.50 each</small></div>
+  </aside>
+</main>
+</body>
+</html>
