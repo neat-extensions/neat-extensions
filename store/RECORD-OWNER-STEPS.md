@@ -1,105 +1,165 @@
 # Neat Record — owner steps (Kal)
 
-Everything below is a one-time setup only you can do (accounts, money, legal).
-Nothing has been uploaded to the Chrome Web Store. The build is ready:
-`dist\neat-record-1.0.0.zip` (store package) and `dist\record\` (unpacked).
+**Already done:** Stripe product + Payment Link, the licence Worker on
+licence.neatextensions.com, Brevo email from keys@neatextensions.com, and the
+draft store item. That item was created through the API on 2026-10-24 and has
+not been submitted:
 
-**Order matters.** Do A (trader + VAT) before any upload. B–E can be done in
-any order; send me the values marked **→ send me**.
+- Item ID: **`ilaekohhdchofcpdoohciddphpogghae`**
+- Dashboard: https://chrome.google.com/webstore/devconsole/99b0b31c-95fb-47dc-8c7c-3c2dce181945/ilaekohhdchofcpdoohciddphpogghae/edit
+
+Open every link with `npm run open -- <link>` from `C:\Projects\Extension Factory`,
+so it opens in the **arcan2252@gmail.com** Chrome profile.
+
+Order: **Part 1** (send me the client ID), then **Part 2** (the store screens).
+Don't press **Submit for review** anywhere. I upload the final package once I
+have the client ID.
 
 ---
 
-## A. Before ANY upload: trader status and VAT (must come first)
+## Part 1 — The Google sign-in client for "Share to Drive"
 
-Neat Record sells something (Pro), so in the EU you are a **trader**.
+### Screen 1: turn on the Drive API
+1. Open https://console.cloud.google.com/apis/library/drive.googleapis.com?project=neat-extensions
+2. Top left must say **neat-extensions**. If it doesn't, click the project name and pick **neat-extensions**.
+3. Click **Enable**. If it already says **Manage**, it's on. Go on.
 
-1. Chrome Web Store Developer Dashboard (https://chrome.google.com/webstore/devconsole), signed in as **arcan2252@gmail.com**.
-2. Left menu → **Account**.
-3. **Trader / non-trader declaration** → choose **Trader**. Fill in: legal name, address, email, phone (these become public on the listing in the EU — use a business address/phone if you have one). → **Save**.
-   - The YouTube item is free; the declaration is per publisher, so it applies to it too. That's fine.
-4. **VAT**: you are selling a digital service to consumers. Before the first sale:
-   - In Stripe (step B) turn on **Stripe Tax** (Settings → Tax → Get started) and add your registrations, *or* register yourself for VAT OSS / your country's scheme.
-   - Where you are based decides the rules (for example, sellers outside the EU selling digital services to EU consumers use the EU **non-Union OSS** from the first sale). Ask an accountant if unsure — I can't decide this for you.
-5. Don't upload `neat-record-1.0.0.zip` until 3 and 4 are done.
+### Screen 2: Branding
+1. Open https://console.cloud.google.com/auth/branding?project=neat-extensions
+2. Fill in or check:
+   - App name: `Neat Record`
+   - User support email: `arcan2252@gmail.com`
+   - App logo: upload `C:\Projects\Extension Factory\apps\record\icons\icon-128.png` (optional: skip it if it asks for review)
+   - Application home page: `https://neatextensions.com/record/help.html`
+   - Application privacy policy link: `https://neatextensions.com/record/privacy.html`
+   - Authorised domains → **+ Add domain** → `neatextensions.com`
+   - Developer contact email: `arcan2252@gmail.com`
+3. Click **Save**.
 
-## B. Stripe: the $9.99 product and the Payment Link
+### Screen 3: Data access (the only permission)
+1. Open https://console.cloud.google.com/auth/scopes?project=neat-extensions
+2. Click **Add or remove scopes**.
+3. In the filter box type `drive.file`. Tick the one row
+   `.../auth/drive.file`: "See, edit, create and delete only the specific Google Drive files you use with this app".
+4. Tick **nothing else**. If any other Drive scope is ticked, untick it.
+5. Click **Update**, then **Save**.
+   (The `chromewebstore` scope used by our release script may also be listed. Leave it as it is.)
 
-1. https://dashboard.stripe.com → create an account (or sign in). Finish **Activate payments** (business details, bank account).
-2. **Product catalog** → **+ Add product**:
-   - Name: `Neat Record Pro`
-   - Description: `Lifetime Pro licence for the Neat Record Chrome extension. Up to 3 of your own computers.`
-   - Pricing: **One-off**, **9.99 USD** (add EUR/GBP prices if you like). Tax behaviour: **Inclusive** (if Stripe Tax is on).
-   - **Save product**. Open the price → copy its id `price_…` → **send me**.
-3. **Payment Links** → **+ New**:
-   - Product: Neat Record Pro, quantity fixed at 1.
-   - **After payment** tab → **Don't show confirmation page** → **Redirect customers to your website** →
-     `https://licence.neatextensions.com/success?session_id={CHECKOUT_SESSION_ID}`
-     (exactly like that, braces included). Done for you: `WORKER_URL=https://licence.neatextensions.com npm run stripe:setup`.
-   - Options: **Collect customers' email addresses** = on (it's on by default).
-   - Payment methods: Settings → Payment methods → keep **Cards**, turn on **Apple Pay**, **Google Pay** (and **PayPal** if offered in your country).
-   - **Create link** → copy `https://buy.stripe.com/…` → **send me** (it goes in `apps/record/app.config.js → buyUrl`).
-4. **Developers** → **API keys** → **+ Create restricted key**: name `neat-licence`, permission **Checkout Sessions: Read**, everything else None → **Create** → copy `rk_live_…` (only for step C, never send it to anyone, including me).
+### Screen 4: Audience
+1. Open https://console.cloud.google.com/auth/audience?project=neat-extensions
+2. If **Publishing status** says **Testing**, click **Publish app**, then **Confirm**.
+   - Without this, only test users can press Share, and buyers can't.
+   - `drive.file` is a non-sensitive scope, so Google needs no security review.
+   - Bonus: the release script's sign-in stops expiring every 7 days.
 
-## C. Cloudflare: the licence Worker (free plan)
+### Screen 5: Create the client
+1. Open https://console.cloud.google.com/auth/clients/create?project=neat-extensions
+2. **Application type** → **Chrome Extension**.
+3. **Name** → `Neat Record`.
+4. **Item ID** → `ilaekohhdchofcpdoohciddphpogghae`
+5. Click **Create**.
+6. A box shows the **Client ID**, which ends in `.apps.googleusercontent.com`.
+   Copy it and **paste it to me in chat**. It isn't secret.
+   - If it offers **Verify app ownership**, skip that for now. It needs the item published.
 
-1. https://dash.cloudflare.com/sign-up → create a free account → verify email.
-2. **Workers & Pages** → it asks for a `*.workers.dev` subdomain → pick one (e.g. `neat`) → this gives `neat-licence.neat.workers.dev`.
-3. On this computer, in `C:\Projects\Extension Factory\services\licence-worker\`:
-   ```
-   npx wrangler login
-   npx wrangler kv namespace create LICENCES
-   ```
-   Copy the printed `id` into `wrangler.toml` (`REPLACE_WITH_KV_NAMESPACE_ID`). Put the Stripe price id from B2 into `STRIPE_PRICE_ID`.
-4. Secrets (each command asks you to paste the value):
-   ```
-   npx wrangler secret put STRIPE_SECRET_KEY
-   npx wrangler secret put LICENCE_PRIVATE_JWK
-   ```
-   - `STRIPE_SECRET_KEY` = the restricted `rk_live_…` key from B4.
-   - `LICENCE_PRIVATE_JWK` = the whole content of `C:\Projects\Extension Factory\.secrets\licence-private.jwk` (open in Notepad, Ctrl+A, Ctrl+C). Backup: `Documents\Neat-keys\licence-private.jwk`.
-5. Email the key to buyers (optional but recommended). Cloudflare's own email sending only reaches arbitrary addresses on the paid Workers plan, so the Worker uses **Brevo**'s free tier (300 emails/day):
-   - https://www.brevo.com → sign up (free) → **Senders, domains & dedicated IPs** → **Senders** → **Add a sender** → your address (e.g. arcan2252@gmail.com) → confirm the email they send.
-   - **SMTP & API** → **API keys** → **Generate a new API key** → copy.
-   - `npx wrangler secret put BREVO_API_KEY` → paste. Put the sender address in `wrangler.toml → MAIL_FROM`.
-   - Without Brevo the key is still shown on the success page (and the page tells buyers to copy it).
-6. `npx wrangler deploy` → it prints `https://neat-licence.<subdomain>.workers.dev` and `licence.neatextensions.com (custom domain)`. The public address is **https://licence.neatextensions.com**; the workers.dev one redirects there.
-7. Test with Stripe **test mode**: make a test Payment Link the same way (redirect to the same Worker), pay with card `4242 4242 4242 4242`, any future date, any CVC → you land on the success page with a key. (Use test-mode keys `rk_test_…`/`price_…` for this run, then switch the secrets to live.)
+---
 
-## D. First draft upload, then the OAuth client for Share to Drive
+## Part 2 — The store screens (after Part 1)
 
-The OAuth client must be bound to the **store's** item ID, and a new item gets
-its ID from the store on its first upload (the store zip carries no `key`). So:
+Dashboard for the item:
+https://chrome.google.com/webstore/devconsole/99b0b31c-95fb-47dc-8c7c-3c2dce181945/ilaekohhdchofcpdoohciddphpogghae/edit
 
-1. Dashboard → **+ New item** → upload `dist\neat-record-1.0.0-not-for-upload.zip`
-   (the current build). **Do not submit it.** It's only to get the ID.
-2. Copy the 32-letter **item ID** (in the URL and under the name) → **send me**.
-3. **Package** tab → **View public key** → copy the whole key → **send me**.
-   I put it in `apps/record/app.config.js → extensionKey` (it replaces the one I
-   generated), so the unpacked build and the store build have the same ID from
-   now on.
-4. https://console.cloud.google.com → project picker → **neat-extensions**.
-5. ☰ → **APIs & Services** → **Library** → search **Google Drive API** → **Enable**.
-6. **Google Auth Platform** (APIs & Services → OAuth consent screen) → **Branding**:
-   app name `Neat Record`, support email, logo (`apps\record\icons\icon-128.png`), home page
-   `https://neatextensions.com/record/help.html`, privacy policy
-   `https://neatextensions.com/record/privacy.html`, authorised domain
-   `neatextensions.com` → **Save**. (The pages go live when I push them.)
-7. **Data access** → **Add or remove scopes** → tick `.../auth/drive.file` ("See, edit, create and
-   delete only the specific Google Drive files you use with this app") → **Update** → **Save**.
-   Google lists `drive.file` as **non-sensitive**: no security assessment, only the light brand check.
-8. **Audience** → **Publish app** (In production), so any Google user can press Share.
-9. **Clients** → **+ Create client** → type **Chrome Extension** → name `Neat Record` →
-   **Item ID** = the store item ID from step 2 → **Create** → copy the **Client ID**
-   (`…apps.googleusercontent.com`) → **send me**.
+All files are in `C:\Projects\Extension Factory\store\record\`. Copy long text
+from the files, not from this page. Press **Save draft** at the top of each tab.
 
-## E. When A–D are done
+### Screen 6: Trader information (Account, once for the whole publisher)
+1. Open https://chrome.google.com/webstore/devconsole/99b0b31c-95fb-47dc-8c7c-3c2dce181945/account
+   (or click **Account** in the left menu).
+2. **Trader status** → **I am a trader** (Neat Record sells Pro).
+3. Fill in your legal name, address, phone and email.
+   - In the EU these are shown on the listing.
+   - Use a business address and phone if you have them.
+   - Email: `hello@neatextensions.com` (it reaches your Gmail).
+4. Click **Save changes**.
 
-1. Send me: Stripe price id, Payment Link URL, Worker URL, store item ID + public key, OAuth client id. I put them in `apps/record/app.config.js` and `wrangler.toml`, run `npm run build -- record --release` (it refuses placeholders and missing pages) and `npm run store -- record`, and commit. That build writes `dist\neat-record-1.0.0.zip`.
-2. In the draft item from D1: **Package** → upload `dist\neat-record-1.0.0.zip`, then follow `store/record/SUBMISSION.md`.
-3. In the item's **Privacy** tab answer exactly what `store/record/listing.json` says.
+### Screen 7: Store listing tab
+Click **Store listing** in the left menu.
 
-## F. Ongoing
+| Field | Value |
+|---|---|
+| Title / Summary | Taken from the package. Shows `Neat Record — Screen Recorder, Draw a Box`. Nothing to type. |
+| Description | All of `description.txt` (open it in Notepad, Ctrl+A, Ctrl+C, paste) |
+| Category | **Productivity**, then **Tools** if it asks for a sub-category |
+| Language | **English** |
+| Store icon | `icon-128.png` |
+| Screenshots, in this order | `screenshots\1-draw-a-box.png`, `2-panel.png`, `3-recording.png`, `4-free-vs-pro.png`, `5-saved-and-shared.png` |
+| Small promo tile | `promo-small-440x280.png` |
+| Marquee promo tile | `marquee-1400x560.png` |
+| Global promo video | leave empty |
+| Official URL | none |
+| Homepage URL | `https://neatextensions.com/record/help.html` |
+| Support URL | `mailto:hello@neatextensions.com`. If the box refuses it, use `https://neatextensions.com/record/help.html`. |
+| Mature content | **No** |
 
-- **Abuse guard** (once, after C): Cloudflare dashboard → **neatextensions.com** → **Security** → **WAF** → **Rate limiting rules** (free plan allows one) → *If* URI path equals `/success` → *rate* 20 requests per 10 seconds per IP → *action* Block for 10 seconds. (Hostname equals `licence.neatextensions.com`. The Worker also caches unknown ids itself.)
-- **Refunds / leaked keys:** in Cloudflare → **Workers & Pages** → **KV** → `LICENCES` → find `session:<Checkout Session id>` (from the Stripe payment) → copy its `sub` → send it to me (or just tell me the date and I read it from KV); it goes into `revokedLicences` in `apps/record/app.config.js` and stops unlocking with the next release.
-- **Deleting a buyer's record** on request: delete that `session:…` key in KV.
+Click **Save draft**.
+
+### Screen 8: Privacy tab
+Click **Privacy** in the left menu. Every value is in `listing.json`.
+
+1. **Single purpose description**:
+   `Record the user's screen — a box drawn on a web page, the whole screen, one window, or the current tab — save the video to the user's computer, and optionally share it through the user's own Google Drive.`
+2. **Permission justification**, one box per permission:
+   - tabCapture: `Records the current tab (and the part of it inside a drawn box) when the user presses Record.`
+   - offscreen: `Runs the recorder (capture, encoding and saving) in an offscreen document, because a service worker cannot record media.`
+   - activeTab: `Lets the extension act only on the tab where the user clicked its icon or pressed its shortcut: to record that tab and show the recording controls there.`
+   - scripting: `Shows the draw-a-box overlay, the small recording bar, the webcam bubble and the 'saved' card on that same tab, from a file inside the extension. Only after the user clicks; never on its own.`
+   - downloads: `Saves the finished video (and trimmed copies or GIFs the user asks for) to the user's Downloads folder.`
+   - storage: `Remembers the user's choices (mode, microphone, sound, quality), the ID of the 'Neat' folder in the user's Drive if Share was used, the date the 10-minute note was last shown, and, if bought, the Pro licence key.`
+   - identity: `Only for Share (Pro): asks Google, after the user presses Share and clicks Allow, for permission to create files in the user's own Drive (drive.file scope) and uploads that one video.`
+   - Host permission: there is none, so no box appears.
+3. **Are you using remote code?** → **No, I am not using remote code**.
+4. **What user data do you plan to collect?** → tick **Website content** only. Leave every other box unticked.
+5. Tick all three certifications:
+   - I do not sell or transfer user data to third parties…
+   - I do not use or transfer user data for purposes that are unrelated to my item's single purpose
+   - I do not use or transfer user data to determine creditworthiness or for lending purposes
+6. **Privacy policy URL** → `https://neatextensions.com/record/privacy.html`
+7. Click **Save draft**.
+
+### Screen 9: Distribution tab
+Click **Distribution** in the left menu.
+
+| Field | Value |
+|---|---|
+| Payments | **Contains in-app purchases** (Pro is bought on our own Stripe page) |
+| Visibility | **Public** |
+| Regions | **All regions** |
+
+Click **Save draft**. **Don't press Submit for review.** I upload the final
+package after your client ID, and then you submit (or tell me to).
+
+---
+
+## Also outstanding (any time, one command each)
+
+- **Deploy the licence Worker fix.** It keeps buyers' keys working if the
+  free KV quota runs out, and support now goes by email. In a terminal:
+  ```
+  cd "C:\Projects\Extension Factory\services\licence-worker"
+  npx wrangler deploy
+  ```
+- **Abuse guard** (Cloudflare free plan allows one rule). Open
+  https://dash.cloudflare.com/b86a70406b904bfd1334fdbdffb5808e/neatextensions.com/security/waf/rate-limiting-rules
+  - Click **Create rule**. Name: `licence success`.
+  - **If**: Hostname equals `licence.neatextensions.com` **and** URI Path equals `/success`.
+  - **Rate**: 10 requests per 10 seconds, counted per IP.
+  - **Action**: Block for 10 seconds.
+  - Click **Deploy**.
+
+## Ongoing
+
+- **Refunds / leaked keys:** tell me the purchase date or the Stripe payment.
+  I read the key's `sub` from KV. It goes into `revokedLicences` in
+  `apps/record/app.config.js` and stops unlocking with the next release.
+- **Deleting a buyer's record** on request: delete that `session:…` key in KV
+  (Cloudflare → Workers & Pages → KV → `LICENCES`), or ask me.

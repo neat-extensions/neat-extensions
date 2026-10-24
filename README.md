@@ -381,12 +381,13 @@ content scripts; one web-accessible page (`camera.html`, dynamic URL);
 ≤ 400 KB; `chrome.scripting` only with bundled files; no test settings in a
 non-test build. Threat model: `docs/record/SECURITY.md`.
 
-**Extension ID** is pinned by the manifest `key` (public half in
-`app.config.js`; private `.secrets/record-extension-key.pem`, backup in
-`%USERPROFILE%\Documents\Neat-keys\`): `njbhijplkhmcehhcemjofldcgpbgoopf`. The
-unpacked build keeps the key; the store zip leaves it out (the store gives a new
-item its own key on the first upload; owner steps D then put the store's
-public key into `app.config.js`, so both builds share the store's ID).
+**Extension ID** `ilaekohhdchofcpdoohciddphpogghae` = the store item (draft
+created 2026-10-24 with `npm run cws -- create <zip>`). The store refuses a
+manifest `key` on a new item (`PKG_MANIFEST_KEY_NOT_EMPTY`) and assigns its own,
+so `app.config.js → extensionKey` holds the *store's* public key: the unpacked
+build keeps it, the store zip leaves it out, and both share the store's ID.
+(`.secrets/record-extension-key.pem` and its ID `njbhijplkhmcehhcemjofldcgpbgoopf`
+are retired.)
 
 **Licences.** `.secrets/licence-private.jwk` signs keys (Worker secret
 `LICENCE_PRIVATE_JWK`); the public half is in `app.config.js`. Keys live in

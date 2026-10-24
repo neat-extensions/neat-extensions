@@ -10,11 +10,12 @@ export default {
   name: "Record",
   productName: `${BRAND} Record`,
   version: "1.0.0",
-  // Public half of .secrets/record-extension-key.pem (scripts/extension-key.mjs).
-  // It pins the extension ID below, which the Google OAuth client is bound to.
+  // The public key the Chrome Web Store gave the item (fetchStatus, 2026-10-24; the store refuses a
+  // manifest key on a new item, so .secrets/record-extension-key.pem is retired). It pins the same ID
+  // in unpacked builds as in the store, which the Google OAuth client is bound to.
   extensionKey:
-    "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtXykyZy5tS7+ZuVpSDSLyE0T3DPuj0Ox/u0vcY1Ff2XlEmvWi5MonIPTWb7hN8gCkWNmlzhowWm2xTSNU9Hlv2xI00T5MdeV6dr37PMzJxDa5kFXZm8vxHoYrcWE8hObRNlVkshHKEAxE5MXBR5H8dhEgRfE4Lu1AFzkc0Cdt4BvJdqqj1ry9SIhr+EznH33GkidzKJhIJ3oA6DOhyoYmFZyN5XcUjY9c5UMIko2jqgDcogVETkeQocwf52ivMjsks1ziZ5FpjDdDFBUg/g0QCoFKmkIcwCwy3moEE5t3WViwSUsiSkhglUZS5nKis74tYDdaJlmApnT55q+t8qC+QIDAQAB",
-  extensionId: "njbhijplkhmcehhcemjofldcgpbgoopf",
+    "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArk3e0o4LG8pTtis1+3i8o5TQc60X8OZxFMlRTRyNiwsW8Z5aEoYVFlWV4HIl+Yj3CTK37mk2nx2CiBm5A1pUfroHFA8P6sMFsmB1+Tgbk2l5UoLM5lDdXtRo1Hkr2UQuCpjfY69oNKTNvSJBlMHA+fBdcBUpq+BZnJxeokIQk6Y3IedMClBJwWHNNPgiemRW1Q/GPAvePLzk7XNBQOkvwg7iw+qGS63YosiBXQoFs1tVS7nJPkuYp9nAd+Nv0QU89waTtutBpQAMC8Zc3ThCBXGY+GiPC0kGZ1R0yOZhneACpNS8xfV/WbtFlHiiFUnDtQZKKEpyOiBLGjxPZC1ZSwIDAQAB",
+  extensionId: "ilaekohhdchofcpdoohciddphpogghae",
   // Google Cloud → APIs & Services → Credentials → OAuth client (type "Chrome Extension",
   // item ID = extensionId). Owner step: store/RECORD-OWNER-STEPS.md. Until it is set,
   // Share to Drive says it is not set up yet; --release refuses the placeholder.
@@ -33,7 +34,7 @@ export default {
   helpUrl: `${PAGES}help.html`,
   proUrl: `${PAGES}pro.html`,
   privacyUrl: `${PAGES}privacy.html`,
-  storeItemId: null,
+  storeItemId: "ilaekohhdchofcpdoohciddphpogghae",
   command: { id: "toggle-recording", key: "Alt+Shift+R" },
   freeLimitMinutes: 10,
 };

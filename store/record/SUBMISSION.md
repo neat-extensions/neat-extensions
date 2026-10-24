@@ -56,7 +56,7 @@ Copy each value from `store/record/listing.json`:
 |---|---|
 | Visibility | Public |
 | Regions | All regions |
-| Payments | None in the store (Pro is sold on our own Stripe page; the store only lists the free item) |
+| Payments | **Contains in-app purchases** (Pro is sold on our own Stripe page) |
 
 ## 5. Before Submit
 
