@@ -1,16 +1,16 @@
 Draw a box. Press Record. Your video is in Downloads.
 
-• Record part of a page: drag a box over any part of a web page and record just that — pixel-sharp, even on high-DPI screens.
-• Or record a tab, a window or your whole screen.
+• Draw a box: drag a box over part of a web page and only that goes in the video — pixel-sharp, even on high-DPI screens.
+• Or record your whole Screen, one Window (say, Excel), or This page — the web page you're on.
 • Screen recorder with no watermark and no sign-up. One click to start.
-• Microphone, plus the tab's sound (or the computer's sound for a whole screen on Windows and ChromeOS), mixed in.
+• Your voice, plus the page's sound (or the computer's sound when you record the whole screen on Windows and ChromeOS).
 • Saves straight to your Downloads folder as MP4 (or WebM where Chrome can't make MP4), with the right length and smooth seeking in common players.
 • Three quality levels in plain words: Good (720p), Better (1080p HD), Best (1440p / 4K, Pro).
 • Free forever: unlimited recordings, up to 10 minutes each. At 10:00 it stops cleanly and saves — nothing is lost.
 • Light: does nothing at all until you press Record.
 
-Pro ($9.99 once, no subscription): No time limit · 1440p and 4K · Share link to your Google Drive · Webcam bubble · Click highlights · 3-2-1 countdown · Pause and resume · Trim start and end · Save as GIF (up to 30 s) · Keyboard shortcut.
-One payment, yours to keep. Use it on up to 3 of your own computers — that is the licence term; nothing checks or counts them.
+Pro ($9.99 once, no subscription): No time limit · Even sharper: 1440p and 4K · Share a link (saved in your Google Drive) · Your face in a little circle · Shows where you click · Counts 3-2-1 before it starts · Pause and carry on · Cut off the start and the end · Make a GIF (up to 30 seconds) · Start and stop with a key (Alt+Shift+R).
+Pay once, keep it. Use it on up to 3 of your own computers. That's the rule — nothing checks or counts them.
 
 No account.
 No watermark.
@@ -19,6 +19,6 @@ Open source.
 
 How it works: Neat Record captures what you choose with Chrome's own screen-capture tools and encodes the video on your computer. Nothing is uploaded unless you press Share (Pro), which uploads that one video to your own Google Drive and gives you a link anyone can watch. Neat Record can only see files it created in your Drive, never anything else.
 
-Free: Tab, window, screen, draw a box · Microphone and sound · Up to 1080p HD · No watermark, no account · Unlimited recordings · 10 minutes per recording.
+Free: Draw a box, Screen, Window, This page · Your voice and the sound · Sharp video, up to 1080p · No watermark, no account · As many recordings as you like · 10 minutes per recording.
 
 Neat is not affiliated with or endorsed by Google.

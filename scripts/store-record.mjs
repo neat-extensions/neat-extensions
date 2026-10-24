@@ -36,7 +36,11 @@ await mkdir(DOCS, { recursive: true });
 // ---------------------------------------------------------------- icons as inline SVG strings
 function svg(name, size = 24, color = "currentColor") {
   const paths = (ICONS[name] || [])
-    .map((p) => (typeof p === "object" ? `<path d="${p.d}" fill="${color}"/>` : `<path d="${p}" fill="none" stroke="${color}" stroke-width="${name === "grip" ? 2.6 : 1.75}" stroke-linecap="round" stroke-linejoin="round"/>`))
+    .map((p) =>
+      typeof p === "object" && p.fill
+        ? `<path d="${p.d}" fill="${color}"/>`
+        : `<path d="${typeof p === "object" ? p.d : p}" fill="none" stroke="${color}" stroke-width="${name === "grip" ? 2.6 : 1.75}" stroke-linecap="round" stroke-linejoin="round"${typeof p === "object" && p.dash ? ` stroke-dasharray="${p.dash}"` : ""}/>`,
+    )
     .join("");
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true">${paths}</svg>`;
 }
@@ -57,7 +61,7 @@ await writeFile(
       description: listing.description,
       category: listing.category,
       language: listing.language,
-      singlePurpose: "Record the user's screen — a tab, a window, the whole screen or a box drawn on a web page — and save the video to the user's computer.",
+      singlePurpose: "Record the user's screen — a box drawn on a web page, the whole screen, one window, or the current web page — and save the video to the user's computer.",
       permissionJustifications: {
         tabCapture: "Records the current tab (and the part of it inside a drawn box) when the user presses Record.",
         offscreen: "Runs the recorder (capture, encoding and saving) in an offscreen document, because a service worker cannot record media.",
@@ -150,7 +154,7 @@ await cp(path.join(ROOT, "apps", "record", "icons", "icon-128.png"), path.join(O
 
 // ---------------------------------------------------------------- poster (Free vs Pro)
 const TILES = [
-  { icon: "box", text: "Any screen", free: true },
+  { icon: "ways", text: "4 ways", free: true },
   { icon: "mic", text: "Mic + sound", free: true },
   { icon: "check", text: "No watermark", free: true },
   { icon: "screen", text: "1080p", free: true },
@@ -169,7 +173,7 @@ function posterHtml() {
     const on = side === "pro" || t.free === true || t.free === "limited";
     const label = side === "pro" && t.pro ? t.pro : t.text;
     const mark = !on ? `<span class="mk off">${svg("lock", 18)}</span>` : `<span class="mk on">${svg("check", 18)}</span>`;
-    const ic = side === "pro" && t.pro ? `<span class="inf">∞</span>` : svg(t.icon, 34);
+    const ic = side === "pro" && t.pro ? `<span class="inf">∞</span>` : t.icon === "ways" ? `<span class="ways4">${["box", "screen", "window", "tab"].map((n) => svg(n, 22)).join("")}</span>` : svg(t.icon, 34);
     return `<div class="tile ${on ? "" : "dim"} ${t.free === "limited" && side === "free" ? "lim" : ""}">${mark}<div class="ic">${ic}</div><div class="tl">${esc(label)}</div></div>`;
   };
   return `<!doctype html><html><head><meta charset="utf-8"><style>${TOKENS.replaceAll(":host, :root", ":root")}
@@ -187,11 +191,11 @@ function posterHtml() {
 .tile.lim .tl{color:#62626d}
 .mk{position:absolute;top:10px;right:10px;width:28px;height:28px;border-radius:50%;display:grid;place-items:center}
 .mk.on{background:#18794e;color:#fff}.mk.off{background:#e8e8ec;color:#8a8a94}
-.inf{font-size:44px;line-height:40px;font-weight:700}
+.inf{font-size:44px;line-height:40px;font-weight:700}.ways4{display:grid;grid-template-columns:repeat(4,22px);gap:4px}
 .foot{display:flex;align-items:center;gap:16px;font-size:26px;font-weight:700}
 .price{display:inline-flex;align-items:center;height:60px;padding:0 30px;border-radius:999px;background:#d6363c;color:#fff;box-shadow:0 8px 20px rgba(214,54,60,.35)}
 .zero{color:#62626d}
-.logo{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);display:flex;gap:10px;align-items:center;font:700 18px var(--font);color:#111114;background:#fff;padding:8px 16px;border-radius:999px;box-shadow:0 4px 14px rgba(0,0,0,.08);z-index:2}
+.logo{position:absolute;left:400px;bottom:34px;display:flex;gap:10px;align-items:center;font:700 18px var(--font);color:#111114;background:#fff;padding:8px 16px;border-radius:999px;box-shadow:0 4px 14px rgba(0,0,0,.08);z-index:2}
 .logo img{width:24px;height:24px;border-radius:6px}
 </style></head><body><div class="logo"><img src="ICON">${esc(app.productName)}</div><div class="wrap">
 <section class="side free"><div class="head"><h2>Free</h2><p>Forever</p></div><div class="grid">${TILES.map((t) => tile(t, "free")).join("")}</div><div class="foot"><span class="zero">$0</span></div></section>
@@ -200,15 +204,24 @@ function posterHtml() {
 }
 
 // ---------------------------------------------------------------- help + pro pages
+// The four modes, in the panel's order, in the owner's words.
+const WAYS = [
+  { icon: "box", name: "Draw a box", text: "You draw a box on the page. Only what is inside the box goes in the video. Everything outside stays out." },
+  { icon: "screen", name: "Screen", text: "Everything on your monitor goes in the video — all your windows, the taskbar, everything you see." },
+  { icon: "window", name: "Window", text: "Pick one program, say Excel. Only Excel goes in the video. If you open something on top of it, that doesn't go in.", note: "Sound is off in Window mode — Chrome can't record one window's sound. Use Screen or This page for sound." },
+  { icon: "tab", name: "This page", text: "Only the web page you are on right now goes in the video. If you click to another page, the video keeps filming the first one — nothing else gets in by accident." },
+];
 const help = (imgs) => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>How to record your screen — ${esc(app.productName)}</title>
-<meta name="description" content="Record part of your screen, a tab or your whole screen in Chrome. Draw a box, press Record, your video is in Downloads.">
+<meta name="description" content="Record part of a web page, your whole screen, a window or the page you're on, in Chrome. Draw a box, press Record, your video is in Downloads.">
 <link rel="icon" href="icon-128.png">
 <style>${pageCss}
 .step{display:grid;grid-template-columns:72px 1fr;gap:20px;margin:40px 0;align-items:start}
 .num{width:72px;height:72px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font:800 36px/1 var(--font)}
 .step h2{margin:6px 0 16px;font-size:30px}.step p{margin:0 0 16px;font-size:20px}
+.ways{display:grid;gap:12px;margin-top:16px}.way{display:grid;grid-template-columns:48px 1fr;gap:16px;align-items:start;background:var(--surface);border-radius:16px;padding:16px 20px;box-shadow:var(--shadow)}
+.way-icon{width:48px;height:48px;border-radius:12px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center}.way-note{margin:8px 0 0;font-size:16px}
 .levels{display:grid;gap:12px;margin-top:16px}.level{display:grid;grid-template-columns:120px 1fr;gap:16px;align-items:center;background:var(--surface);border-radius:16px;padding:16px 20px;box-shadow:var(--shadow)}
 .level b{font-size:22px}.pill{display:inline-block;margin-left:8px;padding:2px 10px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:14px;font-weight:650}
 @media (max-width:640px){.step{grid-template-columns:1fr}.num{width:56px;height:56px;font-size:28px}}
@@ -217,6 +230,10 @@ const help = (imgs) => `<!doctype html>
 <a class="brand" href="help.html"><img src="icon-128.png" alt="">${esc(app.productName)}</a>
 <h1>How to record your screen</h1>
 <p class="muted">Four steps. Then three more if you want to share it.</p>
+<h2 id="ways">Four ways to record</h2>
+<div class="ways">
+${WAYS.map((w) => `<div class="way"><span class="way-icon">${svg(w.icon, 28)}</span><div><b>${esc(w.name)}</b> — ${esc(w.text)}${w.note ? `<p class="muted way-note">${esc(w.note)}</p>` : ""}</div></div>`).join("\n")}
+</div>
 ${imgs
   .map(
     (s, i) => `<section class="step" id="step-${i + 1}"><div class="num" aria-hidden="true">${i + 1}</div><div><h2>${esc(s.title)}</h2><p>${s.text}</p><img class="shot" src="${s.img}" alt="${esc(s.alt)}" width="1280" height="800" loading="${i < 2 ? "eager" : "lazy"}"></div></section>${i === 3 ? `<h2 id="share">Share it (Pro)</h2>` : ""}`,
@@ -230,10 +247,10 @@ ${PRESETS.map((p) => `<div class="level"><b>${esc(p.label)}${p.pro ? '<span clas
 <p class="muted" style="margin-top:16px">Free recordings can be up to ${app.freeLimitMinutes} minutes long. At ${app.freeLimitMinutes}:00 the recording stops by itself and is saved — nothing is lost. <a href="pro.html">Pro</a> has no limit.</p>
 <h2 id="trouble">If something doesn't work</h2>
 <ul>
-<li><b>“This page can't be recorded”</b> — Chrome doesn't let anyone record its own pages (like the New Tab page or the Web Store). Open a normal website, or pick Window or Screen.</li>
-<li><b>No sound from a window</b> — Chrome can't record one window's sound. Use Tab, or Screen on Windows and ChromeOS.</li>
-<li><b>Camera bubble says “Camera blocked”</b> — some websites don't allow cameras at all. Record that site without the bubble, or allow the camera in the address bar.</li>
-<li><b>Chrome asked where to save and you closed it</b> — press <b>Save again</b> on the card or in the panel.</li>
+<li><b>“This page can't be recorded”</b> — Chrome doesn't let anyone record its own pages, like Chrome's start page. Open a normal website, or pick Screen or Window.</li>
+<li><b>No sound in Window mode</b> — Chrome can't record one window's sound. Use Screen or This page for sound.</li>
+<li><b>The camera circle says “Camera blocked”</b> — some websites don't allow cameras. Turn Camera off for that site, or allow the camera in the address bar.</li>
+<li><b>Chrome asked where to save, and you closed that window</b> — press <b>Save again</b>.</li>
 </ul>
 <footer><a href="pro.html">Pro</a><a href="privacy.html">Privacy</a><a href="${esc(listing.sourceUrl)}">Source code</a></footer>
 </main></body></html>
@@ -261,8 +278,10 @@ ${placeholderBuy ? `<span class="btn" id="buy" role="link" aria-disabled="true" 
 <h2>Free, forever</h2>
 <ul class="list">${FREE.map((p) => `<li>${esc(p.text)}</li>`).join("")}</ul>
 <h2>After you buy</h2>
-<p>Your key appears on screen right after you pay (and by email). Click the ${esc(app.productName)} icon, press <b>Pro</b>, paste the key, press <b>Unlock Pro</b>. Your other computers signed in to the same Chrome profile unlock by themselves.</p>
-<p class="muted">${esc(TERMS)} No account, no subscription.</p>
+<p>You get a key straight away, on the screen and by email. It's a long line of letters.</p>
+<ol><li>Click the ${esc(app.productName)} icon.</li><li>Press <b>Pro</b>.</li><li>Paste the key and press <b>Unlock Pro</b>.</li></ol>
+<p>Other computers where you use the same Chrome sign-in unlock by themselves.</p>
+<p class="muted">${esc(TERMS)} No account. No monthly fee.</p>
 <footer><a href="help.html">Help</a><a href="privacy.html">Privacy</a><a href="${esc(listing.sourceUrl)}">Source code</a></footer>
 </main></body></html>
 `;
@@ -380,6 +399,7 @@ const shotShared = await page.screenshot();
 const proCardShareBox = await ui.locator('[data-act="share"]').boundingBox();
 await call("dismiss");
 
+await sw.evaluate(() => chrome.storage.local.set({ settings: { mode: "box", mic: true, sound: true, quality: "better" } }));
 const popupPro = await popupShot({ phase: "idle" }, { pro: true });
 await ctx.close();
 await drive.close();
@@ -435,14 +455,14 @@ await render(withToolbar(popupIdle.buf, "icon") + svgLayer(arrow({ x: 640, y: 15
 steps.push({ title: `Click the ${app.productName} icon`, text: `It's at the top right of Chrome. If you can't see it, click the puzzle piece and pin ${esc(app.productName)}.`, img: "help-1-icon.png", alt: "The extension's icon in Chrome's toolbar, with its panel open" });
 // ② Draw a box
 await render(full(shotDrag) + svgLayer(arrow({ x: 1090, y: 700 }, { x: 800, y: 590 }, 28)), path.join(helpDir, "help-2-draw.png"));
-steps.push({ title: "Pick “Draw a box”, then drag", text: "Press and hold on the page, move to make a box around what you want, then let go. (Or pick Tab, Window or Screen.) Press <b>Esc</b> to stop.", img: "help-2-draw.png", alt: "A box being dragged over part of a web page; the rest is darker" });
+steps.push({ title: "Pick “Draw a box”, then drag", text: "Press and hold on the page, move to make a box around what you want, then let go. Changed your mind? Press <b>Esc</b>.", img: "help-2-draw.png", alt: "A box being dragged over part of a web page; the rest is darker" });
 // ③ Press Record
 const recAt = { x: POP.x + popupIdle.record.x + popupIdle.record.width / 2, y: POP.y + popupIdle.record.y + popupIdle.record.height / 2 };
 await render(withToolbar(popupIdle.buf, "") + svgLayer(arrow({ x: 380, y: 520 }, recAt, 56)), path.join(helpDir, "help-3-record.png"));
 steps.push({ title: "Press Record", text: "The big red button. Recording starts at once — no account, nothing to sign up for.", img: "help-3-record.png", alt: "The panel with an arrow pointing at the big round Record button" });
 // ④ Press Stop
 await render(full(shotRec) + svgLayer(arrow({ x: 1050, y: 760 }, { x: stopBox.x + stopBox.width / 2, y: stopBox.y + stopBox.height / 2 }, 34)), path.join(helpDir, "help-4-stop.png"));
-steps.push({ title: "Press Stop — your video is in Downloads", text: `The little bar next to your box shows the time. Press <b>Stop</b>: the video is saved in your <b>Downloads</b> folder straight away. Recording a whole tab, a window or the screen? There's no bar (it would be in your video): click the ${esc(app.productName)} icon and press <b>Stop</b>, or Chrome's own <b>Stop sharing</b>.`, img: "help-4-stop.png", alt: "The small recording bar with a timer and a Stop button, next to the box" });
+steps.push({ title: "Press Stop — your video is in Downloads", text: `The little bar next to your box shows the time. Press <b>Stop</b>: the video is saved in your <b>Downloads</b> folder straight away. Recording the Screen, a Window or This page? Then there's no bar (it would end up in your video): click the ${esc(app.productName)} icon and press <b>Stop</b>, or Chrome's own <b>Stop sharing</b> button.`, img: "help-4-stop.png", alt: "The small recording bar with a timer and a Stop button, next to the box" });
 // ⑤ Press Share
 await render(full(shotShared) + svgLayer(arrow({ x: 600, y: 420 }, { x: proCardShareBox.x + proCardShareBox.width / 2, y: proCardShareBox.y + proCardShareBox.height / 2 }, 30)), path.join(helpDir, "help-5-share.png"));
 steps.push({ title: "Press Share", text: "On the “Saved” card. Your video goes to your own Google Drive and you get a link.", img: "help-5-share.png", alt: "The Saved card with Show, Share, Trim and GIF buttons" });
@@ -479,7 +499,7 @@ function frame(title, sub, inner, { dark = false } = {}) {
 <div style="position:absolute;left:64px;top:166px;right:64px;font:500 22px/1.4 var(--font);color:${dark ? "#a1a1ab" : "#62626d"}">${esc(sub)}</div>${inner}`;
 }
 const shot = (buf, x, y, w, h) => `<div style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;border-radius:16px;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,.22)"><img src="${dataUrl(buf)}" style="width:100%;height:100%;display:block;object-fit:cover;object-position:top"></div>`;
-await render(frame("Draw a box. Press Record.", "Record part of the screen — or a tab, a window, the whole screen. No watermark.", shot(shotDrag, 192, 218, 896, 560)), path.join(SHOTS, "1-draw-a-box.png"));
+await render(frame("Draw a box. Press Record.", "Only what's in the box goes in the video. Or record your Screen, a Window or This page.", shot(shotDrag, 192, 218, 896, 560)), path.join(SHOTS, "1-draw-a-box.png"));
 await render(
   frame(
     "One click. No account.",

@@ -27,9 +27,10 @@ export function fileName(product, d, ext, suffix = "") {
   return `${product} ${date} at ${time}${suffix}.${ext}`.replace(/[\\/:*?"<>|]/g, "-");
 }
 
-export const MODES = ["tab", "window", "screen", "box"];
+// In the order people see them. "tab" is shown as "This page".
+export const MODES = ["box", "screen", "window", "tab"];
 
-export const DEFAULT_SETTINGS = { mode: "tab", mic: false, sound: true, quality: DEFAULT_PRESET, camera: false, clicks: false, countdown: false };
+export const DEFAULT_SETTINGS = { mode: "box", mic: false, sound: true, quality: DEFAULT_PRESET, camera: false, clicks: false, countdown: false };
 
 export function normaliseSettings(raw) {
   const s = raw && typeof raw === "object" ? raw : {};

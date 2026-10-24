@@ -3,23 +3,23 @@
 import app from "../../app.config.js";
 
 export const FREE = [
-  { icon: "tab", text: "Tab, window, screen, draw a box" },
-  { icon: "mic", text: "Microphone and sound" },
-  { icon: "screen", text: "Up to 1080p HD" },
+  { icon: "box", text: "Draw a box, Screen, Window, This page" },
+  { icon: "mic", text: "Your voice and the sound" },
+  { icon: "screen", text: "Sharp video, up to 1080p" },
   { icon: "check", text: "No watermark, no account" },
-  { icon: "folder", text: "Unlimited recordings" },
+  { icon: "folder", text: "As many recordings as you like" },
   { icon: "countdown", text: `${app.freeLimitMinutes} minutes per recording` },
 ];
 export const PRO = [
   { icon: "infinity", text: "No time limit" },
-  { icon: "screen", text: "1440p and 4K" },
-  { icon: "link", text: "Share link to your Google Drive" },
-  { icon: "camera", text: "Webcam bubble" },
-  { icon: "click", text: "Click highlights" },
-  { icon: "three", text: "3-2-1 countdown" },
-  { icon: "pause", text: "Pause and resume" },
-  { icon: "scissors", text: "Trim start and end" },
-  { icon: "gif", text: "Save as GIF (up to 30 s)" },
-  { icon: "grip", text: "Keyboard shortcut" },
+  { icon: "screen", text: "Even sharper: 1440p and 4K" },
+  { icon: "link", text: "Share a link (saved in your Google Drive)" },
+  { icon: "camera", text: "Your face in a little circle" },
+  { icon: "click", text: "Shows where you click" },
+  { icon: "three", text: "Counts 3-2-1 before it starts" },
+  { icon: "pause", text: "Pause and carry on" },
+  { icon: "scissors", text: "Cut off the start and the end" },
+  { icon: "gif", text: "Make a GIF (up to 30 seconds)" },
+  { icon: "grip", text: "Start and stop with a key (Alt+Shift+R)" },
 ];
-export const TERMS = "One payment, yours to keep. Use it on up to 3 of your own computers — that is the licence term; nothing checks or counts them.";
+export const TERMS = "Pay once, keep it. Use it on up to 3 of your own computers. That's the rule — nothing checks or counts them.";

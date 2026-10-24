@@ -13,10 +13,10 @@ const $ = (id) => document.getElementById(id);
 const send = (msg) => chrome.runtime.sendMessage(msg).catch((e) => ({ ok: false, error: e.message }));
 
 const MODES = [
-  { id: "tab", label: "Tab", icon: "tab", title: "Record this tab" },
-  { id: "window", label: "Window", icon: "window", title: "Record a window" },
-  { id: "screen", label: "Screen", icon: "screen", title: "Record the whole screen" },
-  { id: "box", label: "Draw a box", icon: "box", title: "Record part of this tab: drag a box" },
+  { id: "box", label: "Draw a box", icon: "box", title: "Draw a box: only what's inside it goes in the video" },
+  { id: "screen", label: "Screen", icon: "screen", title: "Everything on your screen" },
+  { id: "window", label: "Window", icon: "window", title: "One program's window" },
+  { id: "tab", label: "This page", icon: "tab", title: "Only the web page you're on" },
 ];
 const TOGGLES = [
   { id: "mic", label: "Mic", icon: "mic", title: "Record your microphone" },
@@ -125,7 +125,7 @@ function paintIdle() {
     b.setAttribute("aria-pressed", String(!!settings[t.id] && (!t.pro || pro) && !(t.id === "sound" && noSound)));
     if (t.id === "sound") {
       b.disabled = noSound;
-      b.title = noSound ? (settings.mode === "window" ? "Chrome can't record one window's sound. Use Tab or Screen." : "A Mac doesn't share the computer's sound. Use Tab.") : t.title;
+      b.title = noSound ? (settings.mode === "window" ? "Sound is off in Window mode — Chrome can't record one window's sound. Use Screen or This page for sound." : "A Mac doesn't share the computer's sound. Use This page for sound.") : t.title;
     }
   }
   const q = presetById(settings.quality, { pro });
@@ -134,7 +134,7 @@ function paintIdle() {
     b.setAttribute("aria-checked", String(on));
     b.tabIndex = on ? 0 : -1;
   }
-  $("quality-caption").textContent = `${q.detail} · ${sizeLabel(q)}${pro ? "" : ` · up to ${app.freeLimitMinutes} minutes`}`;
+  $("quality-caption").textContent = `${q.detail} · ${sizeLabel(q)}${pro ? "" : ` · Free: up to ${app.freeLimitMinutes} minutes`}`;
   // A quiet line on how to stop, until there's something more important to say.
   const msg = $("message");
   if (!msg.classList.contains("error")) msg.textContent = settings.mode === "box" ? "Drag a box on the page. Stop is next to it." : settings.mode === "tab" ? "To stop, click this icon again." : "To stop, click this icon or Chrome's “Stop sharing”.";

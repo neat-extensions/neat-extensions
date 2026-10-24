@@ -38,6 +38,12 @@ test("help: seven numbered steps, each with a real screenshot", () => {
     expect(buf.readUInt32BE(20), m[1]).toBe(800);
   }
   expect(html).toContain("Good, Better or Best?");
+  // The four ways, in the panel's order, in plain words, with the Window sound note.
+  const ways = [...html.matchAll(/<div class="way">.*?<b>([^<]+)<\/b>/g)].map((m) => m[1]);
+  expect(ways).toEqual(["Draw a box", "Screen", "Window", "This page"]);
+  expect(html).toContain("Only what is inside the box goes in the video. Everything outside stays out.");
+  expect(html).toContain("Sound is off in Window mode — Chrome can't record one window's sound. Use Screen or This page for sound.");
+  expect(html).not.toMatch(/(^|[^A-Za-z])Tab([^A-Za-z]|$)/); // "This page" everywhere a reader can see
 });
 
 test("pro: the poster and a Buy button (disabled until the Payment Link exists)", () => {

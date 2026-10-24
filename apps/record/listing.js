@@ -9,17 +9,17 @@ import app from "./app.config.js";
 export const title = `${BRAND} Record — Screen Recorder, Draw a Box`;
 
 // Chrome Web Store summary and manifest description: max 132 characters.
-export const summary = "Screen recorder: record part of a web page, a tab, a window or the screen. No watermark, no account. Saved on your computer.";
+export const summary = "Screen recorder: draw a box, or record your screen, a window or this page. No watermark, no account. Saved on your computer.";
 
 export const firstLine = "Draw a box. Press Record. Your video is in Downloads.";
 
 export const trustLines = ["No account.", "No watermark.", "Your video stays on your computer unless you press Share.", "Open source."];
 
 export const benefits = [
-  "Record part of a page: drag a box over any part of a web page and record just that — pixel-sharp, even on high-DPI screens.",
-  "Or record a tab, a window or your whole screen.",
+  "Draw a box: drag a box over part of a web page and only that goes in the video — pixel-sharp, even on high-DPI screens.",
+  "Or record your whole Screen, one Window (say, Excel), or This page — the web page you're on.",
   "Screen recorder with no watermark and no sign-up. One click to start.",
-  "Microphone, plus the tab's sound (or the computer's sound for a whole screen on Windows and ChromeOS), mixed in.",
+  "Your voice, plus the page's sound (or the computer's sound when you record the whole screen on Windows and ChromeOS).",
   "Saves straight to your Downloads folder as MP4 (or WebM where Chrome can't make MP4), with the right length and smooth seeking in common players.",
   "Three quality levels in plain words: Good (720p), Better (1080p HD), Best (1440p / 4K, Pro).",
   `Free forever: unlimited recordings, up to ${app.freeLimitMinutes} minutes each. At ${app.freeLimitMinutes}:00 it stops cleanly and saves — nothing is lost.`,

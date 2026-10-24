@@ -173,7 +173,7 @@ test.describe("quality presets", () => {
 
 test.describe("settings, names, formats", () => {
   test("settings are normalised, unknown values fall back", () => {
-    expect(normaliseSettings(null)).toEqual({ mode: "tab", mic: false, sound: true, quality: "better", camera: false, clicks: false, countdown: false });
+    expect(normaliseSettings(null)).toEqual({ mode: "box", mic: false, sound: true, quality: "better", camera: false, clicks: false, countdown: false });
     expect(normaliseSettings({ mode: "box", mic: "yes", quality: "ultra", sound: false })).toMatchObject({ mode: "box", mic: false, quality: "better", sound: false });
   });
 

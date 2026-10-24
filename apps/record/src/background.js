@@ -22,7 +22,7 @@ const BLOB_PREFIX = `blob:chrome-extension://${chrome.runtime.id}/`;
 const SAY = {
   page: "This page can't be recorded. Open a normal web page, or pick Window or Screen.",
   boxPage: "Draw a box works on normal web pages. Open one, or pick Window or Screen.",
-  busy: "This tab is already being recorded or shared. Stop that first.",
+  busy: "This page is already being recorded or shared. Stop that first.",
   denied: "Chrome didn't allow the recording. Press Record and choose Share or Allow.",
   start: "The recording couldn't start. Try again.",
   short: "Too short to save. Record for at least a second.",

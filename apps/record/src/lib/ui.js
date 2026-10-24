@@ -6,10 +6,15 @@ const SVG = "http://www.w3.org/2000/svg";
 
 // 24×24, 1.75 stroke, round joins. `fill: true` paths are filled instead.
 export const ICONS = {
-  tab: ["M3.5 5h17v14h-17z", "M3.5 9.5h17", "M8.5 5v4.5", "M13.5 5v4.5"],
-  window: ["M3.5 5h17v14h-17z", "M3.5 8.75h17", "M6.25 6.9h.01", "M8.75 6.9h.01"],
-  screen: ["M3 4.5h18v12H3z", "M8.5 20h7", "M12 16.5V20"],
-  box: ["M4 8.5V4h4.5", "M15.5 4H20v4.5", "M20 15.5V20h-4.5", "M8.5 20H4v-4.5", "M9.5 12h5", "M12 9.5v5"],
+  // The four modes, drawn to be told apart at 20 px:
+  // This page = browser frame with two tabs on top, the first one filled (the page you're on).
+  tab: ["M3 8.5h18v11H3z", { d: "M3.5 4h7.5v4.5H3.5z", fill: true }, "M12 8.5V4.75h7.5V8.5"],
+  // Window = one app window: title bar with three dots top-left.
+  window: ["M3 4.5h18v15H3z", "M3 8.5h18", "M5.6 6.5h.01", "M7.8 6.5h.01", "M10 6.5h.01"],
+  // Screen = monitor on a stand.
+  screen: ["M2.5 4h19v12.5h-19z", "M12 16.5v3.5", "M7.5 20.5h9"],
+  // Draw a box = dashed square, a small cursor at its corner.
+  box: [{ d: "M3 3h12v12H3z", dash: "2.4 2.1" }, { d: "M11.5 11.5l10 3.7-4.3 1.5-1.9 4.5z", fill: true }],
   mic: ["M12 3.25a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0v-5a3 3 0 0 1 3-3z", "M5.75 11a6.25 6.25 0 0 0 12.5 0", "M12 17.25V20.5"],
   sound: ["M4 9.5h3.5L12 5.75v12.5L7.5 14.5H4z", "M15.5 9.25a4 4 0 0 1 0 5.5", "M18 6.75a7.5 7.5 0 0 1 0 10.5"],
   camera: ["M3.5 7.25h11.25v9.5H3.5z", "M14.75 10.75l5.75-3.25v9l-5.75-3.25"],
@@ -44,6 +49,7 @@ export function icon(name, { size = 20, cls = "" } = {}) {
     const path = document.createElementNS(SVG, "path");
     const fill = typeof p === "object" && p.fill;
     path.setAttribute("d", typeof p === "object" ? p.d : p);
+    if (typeof p === "object" && p.dash) path.setAttribute("stroke-dasharray", p.dash);
     path.setAttribute("fill", fill ? "currentColor" : "none");
     path.setAttribute("stroke", fill ? "none" : "currentColor");
     path.setAttribute("stroke-width", name === "grip" ? "2.6" : "1.75");

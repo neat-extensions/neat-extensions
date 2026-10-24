@@ -59,11 +59,15 @@ test("keyboard only: pick a mode with arrows, toggle a switch, reach Record", as
     await page.goto(`chrome-extension://${ID}/popup.html`);
     await page.locator("body.ready").waitFor();
     await page.locator('.mode[aria-checked="true"]').focus();
+    // Fresh install: Draw a box first and selected; then Screen, Window, This page.
+    expect(await page.locator(".mode").evaluateAll((els) => els.map((e) => e.textContent))).toEqual(["Draw a box", "Screen", "Window", "This page"]);
+    await expect(page.locator('.mode[data-id="box"]')).toHaveAttribute("aria-checked", "true");
+    await page.keyboard.press("ArrowRight");
     await page.keyboard.press("ArrowRight");
     await expect(page.locator('.mode[data-id="window"]')).toHaveAttribute("aria-checked", "true");
     // Window: no sound to record, so the Sound switch is off and disabled.
     await expect(page.locator('.toggle[data-id="sound"]')).toBeDisabled();
-    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("ArrowLeft");
     await expect(page.locator('.mode[data-id="screen"]')).toBeFocused();
     await page.keyboard.press("Tab");
     await expect(page.locator('.toggle[data-id="mic"]')).toBeFocused();
@@ -91,7 +95,7 @@ test("free: Pro items show a small lock and open the Pro page, nothing else", as
     await page.locator("body.ready").waitFor();
     // Camera, Clicks, 3-2-1, Best.
     expect(await page.locator("#idle .lock").count()).toBe(4);
-    await expect(page.locator("#quality-caption")).toHaveText("1080p HD · ~20 MB a minute · up to 10 minutes");
+    await expect(page.locator("#quality-caption")).toHaveText("1080p HD · ~20 MB a minute · Free: up to 10 minutes");
     const [pro] = await Promise.all([ctx.waitForEvent("page"), page.locator('.toggle[data-id="camera"]').click()]);
     await expect(pro).toHaveURL(new RegExp(`chrome-extension://${ID}/pro.html`));
     await expect(pro.getByText("Get Pro — coming soon")).toBeVisible();
