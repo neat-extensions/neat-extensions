@@ -4,6 +4,7 @@
 //
 //   npm run release:ship [-- <site>] [-- --publish]
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { BRAND_SLUG } from "../brand.config.js";
 import { status, upload, publish, CwsError } from "./cws.mjs";
@@ -11,10 +12,12 @@ import { status, upload, publish, CwsError } from "./cws.mjs";
 const ROOT = path.resolve(import.meta.dirname, "..");
 const args = process.argv.slice(2);
 const siteName = args.find((a) => !a.startsWith("--")) || "youtube";
-const { default: site } = await import(new URL(`file:///${path.join(ROOT, "apps", siteName, "site.config.js").replace(/\\/g, "/")}`).href);
+// Rules products have site.config.js, tool products (Neat Record) app.config.js; both carry version + storeItemId.
+const configFile = ["site.config.js", "app.config.js"].map((f) => path.join(ROOT, "apps", siteName, f)).find((f) => existsSync(f));
+const { default: site } = await import(new URL(`file:///${configFile.replace(/\\/g, "/")}`).href);
 
 try {
-  if (!site.storeItemId) throw new CwsError(`apps/${siteName}/site.config.js has no storeItemId`);
+  if (!site.storeItemId) throw new CwsError(`apps/${siteName}/${path.basename(configFile)} has no storeItemId (a new item's first upload is done by hand: store/${siteName}/SUBMISSION.md)`);
   const r = spawnSync(process.execPath, [path.join(ROOT, "scripts", "build.mjs"), siteName, "--release", "--e2e"], { cwd: ROOT, stdio: "inherit" });
   if (r.status !== 0) throw new CwsError("release pipeline failed — nothing uploaded");
   const zip = path.join(ROOT, "dist", `${BRAND_SLUG}-${siteName}-${site.version}.zip`);

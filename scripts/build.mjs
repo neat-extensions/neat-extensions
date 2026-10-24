@@ -35,6 +35,12 @@ function run(cmd, cmdArgs, env = {}) {
 }
 
 const appDir = path.join(ROOT, "apps", siteName);
+// Tool products (no rules, no updater) have their own pipeline with the same gates.
+if ((await stat(path.join(appDir, "app.config.js")).catch(() => null)) !== null) {
+  const { buildTool } = await import("./build-tool.mjs");
+  await buildTool(siteName, args);
+  process.exit(0);
+}
 const { default: site } = await import(pathToUrl(path.join(appDir, "site.config.js")));
 const listing = await import(pathToUrl(path.join(appDir, "listing.js")));
 const rules = JSON.parse(await readFile(path.join(appDir, "rules", "rules.json"), "utf8"));

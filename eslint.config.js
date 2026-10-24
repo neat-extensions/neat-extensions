@@ -28,6 +28,12 @@ export default [
     },
   },
   {
+    // Cloudflare Worker: web-standard globals only.
+    files: ["services/**/*.js"],
+    languageOptions: { ecmaVersion: 2024, sourceType: "module", globals: { ...globals.serviceworker } },
+    rules: { "no-unused-vars": ["error", { argsIgnorePattern: "^_" }] },
+  },
+  {
     files: ["scripts/**/*.mjs", "tools/**/*.mjs", "tests/**/*.js", "tests/**/*.mjs", "*.config.js", "*.config.mjs"],
     languageOptions: { ecmaVersion: 2024, sourceType: "module", globals: { ...globals.node, ...globals.browser, chrome: "readonly" } },
     rules: { "no-unused-vars": ["error", { argsIgnorePattern: "^_" }] },

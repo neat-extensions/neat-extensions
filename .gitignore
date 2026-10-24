@@ -12,3 +12,5 @@ dist-store/
 .secrets/
 finder/.cache/
 finder/data-*.json
+.wrangler/
+.dev.vars

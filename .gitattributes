@@ -3,3 +3,6 @@
 *.zip binary
 docs/*/rules.json -text
 docs/*/rules.json.sig -text
+*.mp4 binary
+*.webm binary
+*.gif binary
