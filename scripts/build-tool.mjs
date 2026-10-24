@@ -53,6 +53,9 @@ export async function buildTool(appName, args) {
     RECORD_TIME_SCALE: test ? process.env.RECORD_TIME_SCALE || "30" : "1",
     RECORD_TEST_TOKEN: test ? "test-token" : "",
     RECORD_DRIVE_BASE: test ? TEST_DRIVE : "https://www.googleapis.com",
+    // Web sign-in for browsers without Chrome's own (Edge, Brave): tests use a fake Google on 127.0.0.1.
+    RECORD_AUTH_URL: test ? `${TEST_DRIVE}/o/oauth2/v2/auth` : "https://accounts.google.com/o/oauth2/v2/auth",
+    RECORD_WEB_CLIENT_ID: test ? "test-web-client.apps.googleusercontent.com" : app.oauthWebClientId,
     // A throwaway licence key pair made by the e2e setup, so tests never need the real private key.
     RECORD_LICENCE_PUBLIC_KEY: test ? process.env.RECORD_LICENCE_PUBLIC_KEY || "" : "",
     RECORD_SHADOW: test ? "open" : "closed",
@@ -116,7 +119,8 @@ export async function buildTool(appName, args) {
     permissions: [...policy.permissions],
     ...(test ? { host_permissions: TEST_HOSTS } : {}),
     web_accessible_resources: policy.war,
-    commands: { [app.command.id]: { suggested_key: { default: app.command.key }, description: "Stop recording (anyone) or start one (Pro)" } },
+    // Every platform named, so the key is assigned at install (Alt = Option on a Mac).
+    commands: { [app.command.id]: { suggested_key: { default: app.command.key, windows: app.command.key, mac: app.command.key, linux: app.command.key, chromeos: app.command.key }, description: "Stop recording (anyone) or start one (Pro)" } },
     oauth2: { client_id: app.oauthClientId, scopes: [app.driveScope] },
     // No frame-ancestors: the webcam bubble (camera.html) is shown inside the recorded page. Every
     // other page can't be framed by websites anyway: only camera.html is web-accessible.

@@ -1,7 +1,8 @@
 // Pro: a licence key pasted on the Pro page unlocks everything and is kept in
 // chrome.storage.sync; pause/resume, trim, GIF and Share produce correct output.
-import { test, expect, launch, worker, startServer, startFakeDrive, setSettings, tabIdOf, call, waitPhase, lastDownload, probe, testLicence, unlockPro, state, ID } from "./helpers.js";
-import { readFileSync } from "node:fs";
+import { test, expect, launch, worker, startServer, startFakeDrive, setSettings, tabIdOf, call, waitPhase, lastDownload, probe, testLicence, unlockPro, state, ID, RESULTS } from "./helpers.js";
+import { readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import { bufferSource } from "../../apps/record/src/lib/bytes.js";
 import { inspectMp4 } from "../../apps/record/src/lib/mp4.js";
 import { inspectGif } from "../../apps/record/src/lib/gif.js";
@@ -188,19 +189,158 @@ test("free: the page card has no Pro buttons; the panel shows them locked and op
     await setSettings(sw, { mode: "tab", sound: false, mic: false });
     await call(sw, "start", { tabId });
     await waitPhase(sw, "recording");
+    // The panel is open when the recording ends, so it shows the "Saved" card.
+    const panel = await ctx.newPage();
+    await panel.setViewportSize({ width: 344, height: 448 });
+    await panel.goto(`chrome-extension://${ID}/popup.html`);
     await page.waitForTimeout(1_500);
     await call(sw, "stop");
     await waitPhase(sw, "done");
     const card = page.locator("neat-record-ui").locator(".card");
     await expect(card.locator('[data-act="share"]')).toHaveCount(0);
-    const panel = await ctx.newPage();
-    await panel.setViewportSize({ width: 344, height: 448 });
-    await panel.goto(`chrome-extension://${ID}/popup.html`);
     await expect(panel.locator("#done-actions .lock")).toHaveCount(3); // Share, Trim, GIF
     const [pro] = await Promise.all([ctx.waitForEvent("page"), panel.getByRole("button", { name: /Share \(Pro/ }).click()]);
     await expect(pro).toHaveURL(new RegExp(`chrome-extension://${ID}/pro.html`));
     expect((await call(sw, "share")).error).toBe("pro");
   } finally {
     await ctx.close();
+  }
+});
+
+/** A solid red fake camera (Y4M, YUV 4:2:0): any overlay text in the bubble shows up as white pixels. */
+function redCamera() {
+  const file = path.join(RESULTS, "red-camera.y4m");
+  const w = 320;
+  const h = 320;
+  const frame = Buffer.concat([Buffer.from("FRAME\n"), Buffer.alloc(w * h, 76), Buffer.alloc((w * h) / 4, 85), Buffer.alloc((w * h) / 4, 255)]);
+  writeFileSync(file, Buffer.concat([Buffer.from(`YUV4MPEG2 W${w} H${h} F30:1 Ip A1:1 C420jpeg\n`), frame, frame]));
+  return file;
+}
+
+/** Share of near-white pixels and of red pixels inside the middle of a circle, from RGBA data. */
+function bubbleStats(px) {
+  let white = 0;
+  let red = 0;
+  for (let i = 0; i < px.length; i += 4) {
+    if (px[i] > 200 && px[i + 1] > 200 && px[i + 2] > 200) white++;
+    if (px[i] > 150 && px[i + 1] < 90 && px[i + 2] < 90) red++;
+  }
+  const n = px.length / 4;
+  return { white: white / n, red: red / n };
+}
+
+test("camera bubble: when the camera works, no 'Camera blocked' text — on the page or in the video", async () => {
+  test.setTimeout(120_000);
+  const ctx = await launch({ extraArgs: [`--use-file-for-fake-video-capture=${redCamera()}`] });
+  try {
+    const sw = await worker(ctx);
+    await unlockPro(sw);
+    const page = ctx.pages()[0] || (await ctx.newPage());
+    await page.goto(`${server.base}/busy.html`);
+    const tabId = await tabIdOf(sw, server.base);
+    await setSettings(sw, { mode: "tab", sound: false, mic: false, quality: "better", countdown: false, clicks: false, camera: true });
+    expect((await call(sw, "start", { tabId })).ok).toBe(true);
+    await waitPhase(sw, "recording", 15_000);
+    const bubble = page.locator("neat-record-ui").locator(".cam");
+    await expect(bubble).toBeVisible();
+    const camFrame = page.frames().find((f) => f.url().includes("/camera.html"));
+    await expect.poll(() => camFrame.evaluate(() => document.getElementById("v").readyState), { timeout: 10_000 }).toBeGreaterThanOrEqual(2);
+    await expect(camFrame.locator("#msg")).toBeHidden();
+
+    // The detector works: forcing the message on makes white text appear in the bubble.
+    const box = await bubble.boundingBox();
+    const inner = { x: box.x + box.width * 0.25, y: box.y + box.height * 0.3, width: box.width * 0.5, height: box.height * 0.4 };
+    const shotPx = async () => {
+      const png = await page.screenshot({ clip: inner });
+      return page.evaluate(async (b64) => {
+        const img = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob());
+        const c = new OffscreenCanvas(img.width, img.height);
+        const g = c.getContext("2d");
+        g.drawImage(img, 0, 0);
+        return [...g.getImageData(0, 0, img.width, img.height).data];
+      }, png.toString("base64"));
+    };
+    const clean = bubbleStats(await shotPx());
+    await camFrame.evaluate(() => (document.getElementById("msg").hidden = false));
+    const withText = bubbleStats(await shotPx());
+    await camFrame.evaluate(() => (document.getElementById("msg").hidden = true));
+    expect(clean.red).toBeGreaterThan(0.6);
+    expect(withText.white).toBeGreaterThan(clean.white + 0.02);
+
+    await page.waitForTimeout(3_000);
+    await call(sw, "stop");
+    await waitPhase(sw, "done", 60_000);
+    const d = await lastDownload(sw);
+    const vp = page.viewportSize();
+    // The recorded frame at 2 s, the same middle part of the bubble, scaled to the video's size.
+    const px = await page.evaluate(
+      async ({ src, inner, vp }) => {
+        const v = document.createElement("video");
+        v.muted = true;
+        v.src = src;
+        document.body.append(v);
+        await new Promise((r) => (v.onloadeddata = r));
+        await new Promise((r) => {
+          v.onseeked = r;
+          v.currentTime = 2;
+        });
+        const sx = v.videoWidth / vp.width;
+        const sy = v.videoHeight / vp.height;
+        const c = new OffscreenCanvas(Math.round(inner.width * sx), Math.round(inner.height * sy));
+        const g = c.getContext("2d");
+        g.drawImage(v, inner.x * sx, inner.y * sy, inner.width * sx, inner.height * sy, 0, 0, c.width, c.height);
+        return [...g.getImageData(0, 0, c.width, c.height).data];
+      },
+      { src: `${server.base}/file?p=${encodeURIComponent(d.filename)}`, inner, vp },
+    );
+    const rec = bubbleStats(px);
+    expect(rec.red, "the camera picture is in the video").toBeGreaterThan(0.5);
+    expect(rec.white, "no overlay text in the video").toBeLessThan(clean.white + 0.01);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("Share without Chrome's own sign-in (Edge, Brave): Google's web sign-in, then upload; a cancelled sign-in says so", async () => {
+  test.setTimeout(180_000);
+  const drive = await startFakeDrive();
+  const ctx = await launch();
+  try {
+    const sw = await worker(ctx);
+    await unlockPro(sw);
+    await sw.evaluate(() => chrome.storage.local.set({ testWebSignIn: true }));
+    const page = ctx.pages()[0] || (await ctx.newPage());
+    await page.goto(`${server.base}/busy.html`);
+    const tabId = await tabIdOf(sw, server.base);
+    await setSettings(sw, { mode: "tab", sound: false, mic: false, countdown: false, camera: false, clicks: false });
+    await call(sw, "start", { tabId });
+    await waitPhase(sw, "recording");
+    await page.waitForTimeout(2_000);
+    await call(sw, "stop");
+    await waitPhase(sw, "done");
+    expect((await call(sw, "share")).ok).toBe(true);
+    await expect.poll(async () => (await state(sw)).link, { timeout: 60_000 }).toBe("https://drive.google.com/file/d/file1/view?usp=drivesdk");
+    expect(drive.seen.signIns).toHaveLength(1);
+    expect(drive.seen.signIns[0]).toMatchObject({
+      client_id: "test-web-client.apps.googleusercontent.com",
+      response_type: "token",
+      redirect_uri: `https://${ID}.chromiumapp.org/`,
+      scope: "https://www.googleapis.com/auth/drive.file",
+    });
+    expect([...drive.seen.auth]).toEqual(["Bearer test-token"]);
+    // Share again: the token is reused, no second sign-in.
+    expect((await call(sw, "share")).ok).toBe(true);
+    await expect.poll(async () => (await state(sw)).job, { timeout: 60_000 }).toBeNull();
+    expect(drive.seen.signIns).toHaveLength(1);
+    // Sign-in refused or closed: a plain message, nothing uploaded.
+    await sw.evaluate(() => chrome.storage.session.remove("webToken"));
+    drive.seen.denySignIn = true;
+    const before = drive.seen.files.length;
+    expect((await call(sw, "share")).ok).toBe(true);
+    await expect.poll(async () => (await state(sw)).toast, { timeout: 60_000 }).toBe("Google sign-in was cancelled. Press Share and click Allow.");
+    expect(drive.seen.files.length).toBe(before);
+  } finally {
+    await ctx.close();
+    await drive.close();
   }
 });

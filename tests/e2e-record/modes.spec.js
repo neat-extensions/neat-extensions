@@ -105,3 +105,23 @@ for (const mode of ["window", "screen"]) {
     }
   });
 }
+
+// Screen and Window are captured at their own size and scaled to the quality's height, never enlarged
+// (lib/crop.js fitHeight, unit-tested with big screens). The headless fake screen is 1280×720, so every
+// quality gives 720 lines here; that a real 1440p/4K monitor gives 720/1080 lines is the owner's check.
+for (const quality of ["good", "better"]) {
+  test(`screen at ${quality}: the fake 1280×720 screen is recorded at its own size, not enlarged or halved`, async () => {
+    const ctx = await launch({ display: true });
+    try {
+      const sw = await worker(ctx);
+      const page = ctx.pages()[0] || (await ctx.newPage());
+      await page.goto(`${server.base}/busy.html`);
+      const tabId = await tabIdOf(sw, server.base);
+      const { download } = await recordFor(sw, { tabId, ms: 3_000, settings: { mode: "screen", sound: false, mic: false, quality } });
+      const p = await probe(page, server, download.filename);
+      expect([p.width, p.height]).toEqual([1280, 720]);
+    } finally {
+      await ctx.close();
+    }
+  });
+}

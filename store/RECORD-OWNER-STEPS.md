@@ -15,8 +15,29 @@ so it opens in the **arcan2252@gmail.com** Chrome profile.
 2026-10-24). The final release package `dist\neat-record-1.0.0.zip` is uploaded
 to the draft. The licence Worker fix is deployed.
 
-**Left for you:** Part 2 (the store screens). Then press **Submit for review**
-on the item, or tell me to submit it.
+**Left for you:** Part 1b (one more sign-in client, so Share works in Edge and
+Brave), Part 2 (the store screens), then the real-Chrome checks at the end.
+Then press **Submit for review** on the item, or tell me to submit it.
+
+---
+
+## Part 1b — The sign-in client for Edge and Brave (send me its client ID)
+
+Edge and Brave don't have Chrome's built-in Google sign-in, so Share signs in
+through Google's web page there. That needs a second client of type
+"Web application". Until it exists, Share in those browsers says
+"Share works in Google Chrome for now".
+
+1. Open https://console.cloud.google.com/auth/clients/create?project=neat-extensions
+2. **Application type** → **Web application**.
+3. **Name** → `Neat Record (Edge and Brave)`.
+4. **Authorised JavaScript origins** → leave empty.
+5. **Authorised redirect URIs** → **+ Add URI** →
+   `https://ilaekohhdchofcpdoohciddphpogghae.chromiumapp.org/`
+   (exactly like that, with the slash at the end).
+6. Click **Create**.
+7. Copy the **Client ID** (ends in `.apps.googleusercontent.com`) and paste it
+   to me in chat. Ignore the client secret: Share doesn't use it.
 
 ---
 
@@ -166,3 +187,24 @@ is saved with no red errors, press **Submit for review** (or tell me to).
   `apps/record/app.config.js` and stops unlocking with the next release.
 - **Deleting a buyer's record** on request: delete that `session:…` key in KV
   (Cloudflare → Workers & Pages → KV → `LICENCES`), or ask me.
+
+## Check in real Chrome before you submit (automation can't do these)
+
+Install the uploaded package. On https://chrome.google.com/webstore/devconsole/99b0b31c-95fb-47dc-8c7c-3c2dce181945/ilaekohhdchofcpdoohciddphpogghae/edit,
+click **Package** and download it, or ask me for an unpacked copy. Unlock Pro
+with your test key.
+
+1. **Share with the real Google window.** Record a few seconds, press **Share**
+   and click **Allow** in Google's window. You should see "Link copied", and the
+   link should open the video. Then press Share on another recording and click
+   **Cancel**: it should say "Google sign-in was cancelled. Press Share and click Allow."
+2. **One window only.** Pick **Window** and choose one program. Move another
+   window on top of it while recording. Only the chosen program should be in
+   the video, with no sound.
+3. **Shortcut.** Open chrome://extensions/shortcuts: Neat Record should show
+   **Alt+Shift+R**. As Pro, press it to start and again to stop.
+4. **Pro past 10 minutes.** As Pro, record for 11 minutes. It should not stop
+   at 10:00.
+5. **Screen sizes on your monitor.** Record **Screen** at **Good** and at
+   **Better**. Right-click each file → **Properties** → **Details**: the frame
+   height should say 720 and 1080 (if your screen is at least that tall).

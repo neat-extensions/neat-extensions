@@ -20,6 +20,11 @@ export default {
   // item ID = extensionId). Owner step: store/RECORD-OWNER-STEPS.md. Until it is set,
   // Share to Drive says it is not set up yet; --release refuses the placeholder.
   oauthClientId: "60013913850-g4ivgchfjvt57dgpna8vb95sro5pdh69.apps.googleusercontent.com",
+  // Browsers without Chrome's own sign-in (Edge, Brave, …) sign in through a web page instead
+  // (chrome.identity.launchWebAuthFlow). That needs a second client, type "Web application", with the
+  // redirect URI https://<extensionId>.chromiumapp.org/ — owner step in store/RECORD-OWNER-STEPS.md.
+  // While it is a placeholder, Share on those browsers says it works in Chrome for now.
+  oauthWebClientId: "OAUTH_WEB_CLIENT_ID.apps.googleusercontent.com",
   driveScope: "https://www.googleapis.com/auth/drive.file",
   // Public half of .secrets/licence-private.jwk (scripts/licence-sign.mjs).
   licencePublicKey: { kty: "EC", crv: "P-256", x: "o4PFK7bPn2hjfql_HtvDGUXXnExckr1gBDav74IWKcU", y: "BfGeyMQjunl63SIfkzdg1EAIg3rUC0uVGzJoORLRqE0" },

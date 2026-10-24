@@ -60,3 +60,10 @@ export function captureSize(vw, vh, dpr, presetHeight, box = null) {
   const s = Math.min(1, presetHeight / keptH) * dpr;
   return { width: Math.max(2, even(Math.round(vw * s))), height: Math.max(2, even(Math.round(vh * s))) };
 }
+
+/** A frame of w×h shrunk to at most `maxHeight` lines, same shape, even sizes (never enlarged). */
+export function fitHeight(w, h, maxHeight) {
+  const even = (n) => Math.max(2, Math.round(n / 2) * 2);
+  if (!maxHeight || h <= maxHeight) return { width: w - (w % 2), height: h - (h % 2) };
+  return { width: even((w * maxHeight) / h), height: even(maxHeight) };
+}

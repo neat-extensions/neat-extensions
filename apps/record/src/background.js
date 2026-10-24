@@ -11,6 +11,9 @@ import { shouldShowLimitNote, dayKey } from "./lib/limiter.js";
 
 const LICENCE_KEY = licencePublicKey(app);
 const TEST_TOKEN = process.env.RECORD_TEST_TOKEN || "";
+const AUTH_URL = process.env.RECORD_AUTH_URL || "https://accounts.google.com/o/oauth2/v2/auth";
+const WEB_CLIENT_ID = process.env.RECORD_WEB_CLIENT_ID || app.oauthWebClientId;
+const SIGN_IN_CANCELLED = "Google sign-in was cancelled. Press Share and click Allow.";
 const OFFSCREEN = "offscreen.html";
 const OFFSCREEN_URL = chrome.runtime.getURL(OFFSCREEN);
 const LIMIT = `${app.freeLimitMinutes}:00`;
@@ -23,6 +26,7 @@ const SAY = {
   page: "This page can't be recorded. Open a normal web page, or pick Window or Screen.",
   boxPage: "Draw a box works on normal web pages. Open one, or pick Window or Screen.",
   busy: "This page is already being recorded or shared. Stop that first.",
+  held: "Your browser is still holding this page after the last try. Close this tab and open the page again, or pick Screen.",
   denied: "Chrome didn't allow the recording. Press Record and choose Share or Allow.",
   start: "The recording couldn't start. Try again.",
   short: "Too short to save. Record for at least a second.",
@@ -141,6 +145,14 @@ async function healStuck(st) {
   return getState();
 }
 
+/** "busy" right after our own failed start on that tab means the browser kept its hold on the page: say how to get out. */
+async function startError(e, tabId) {
+  const code = friendlyStart(e);
+  if (code !== "busy") return code;
+  const { failedTab } = await chrome.storage.session.get("failedTab");
+  return failedTab === tabId ? "held" : code;
+}
+
 function friendlyStart(e) {
   const m = String((e && e.message) || e);
   if (/Chrome pages cannot be captured|not been invoked|Cannot access|cannot be scripted/i.test(m)) return "page";
@@ -167,7 +179,7 @@ async function start({ tabId } = {}) {
       streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tab.id });
     } catch (e) {
       if (injected) toTab(tab.id, { type: "teardown" });
-      return { ok: false, error: SAY[friendlyStart(e)] };
+      return { ok: false, error: SAY[await startError(e, tab.id)] };
     }
   }
   const stamp = Date.now();
@@ -210,6 +222,7 @@ async function begin(tabId, s, pro, choice, stamp, streamId = null) {
     await toOffscreen("rec:go");
     await setState({ phase: "recording", startedAt: Date.now(), bankedMs: 0, paused: false, format: info.format, box: choice && choice.box, micBlocked: info.micBlocked, toast: info.micBlocked ? SAY.micBlocked : null, ...extras });
     await badge("rec");
+    await chrome.storage.session.remove("failedTab");
   } catch (e) {
     console.warn("recording did not start:", e && e.message); // for the developer console; users get a plain sentence
     await toOffscreen("rec:abort").catch(() => {});
@@ -220,7 +233,11 @@ async function begin(tabId, s, pro, choice, stamp, streamId = null) {
       if (st.injected) toTab(tabId, { type: "teardown" });
       await badge(null);
       await setState(IDLE, { replace: true });
-    } else await fail(friendlyStart(e));
+    } else {
+      // A failed start on a tab can leave the browser holding it (seen with Chrome's test switches).
+      if (s.mode === "tab" || s.mode === "box") await chrome.storage.session.set({ failedTab: tabId });
+      await fail(await startError(e, tabId));
+    }
   }
 }
 
@@ -278,7 +295,11 @@ async function onSaved(m) {
   }
   if (m.reason === "disk") note = SAY.disk;
   if (m.reason === "error") note = SAY.stopped;
-  if (m.reason === "ended" && !note) note = "You stopped sharing, so the recording stopped and was saved.";
+  if (m.reason === "ended" && !note) {
+    // The capture ended on its own: the recorded tab was closed, or the user pressed the browser's "Stop sharing".
+    const tabGone = ["tab", "box"].includes(st.mode) && !(await chrome.tabs.get(st.tabId).catch(() => null));
+    note = tabGone ? "Recording saved." : "You stopped sharing, so the recording stopped and was saved.";
+  }
   if (!m.repaired) note = [note, "Saved without its index, so some players can't skip around in it."].filter(Boolean).join(" ");
   const last = { opfsName: m.opfsName, ext: m.ext, mime: m.mime, size: m.size, durationMs: m.durationMs, filename, recordedMs: m.recordedMs, trims: [], unindexed: !m.repaired };
   await setState({ phase: "saving", last, note, toast: st.micBlocked ? "Recorded without the microphone (it was blocked)." : st.toast === SAY.micBlocked ? null : st.toast });
@@ -436,10 +457,43 @@ async function jobFailed(e) {
 }
 
 async function getToken() {
-  if (TEST_TOKEN) return TEST_TOKEN;
-  const r = await chrome.identity.getAuthToken({ interactive: true, scopes: [app.driveScope] }).catch(() => null);
-  const token = typeof r === "string" ? r : r && r.token;
-  if (!token) throw Object.assign(new Error("Google sign-in was cancelled. Press Share and click Allow."), { kind: "auth" });
+  // Test builds skip sign-in, unless a test asks for the web sign-in (against a fake Google).
+  if (TEST_TOKEN && !(await chrome.storage.local.get("testWebSignIn")).testWebSignIn) return TEST_TOKEN;
+  const { webToken } = await chrome.storage.session.get("webToken");
+  if (webToken && webToken.exp > Date.now() + 60_000) return webToken.token;
+  // Edge, Brave and Opera have no Chrome sign-in (getAuthToken fails at once there).
+  const brands = (navigator.userAgentData && navigator.userAgentData.brands) || [];
+  const notChrome = !!navigator.brave || brands.some((b) => /Edge|Brave|Opera/i.test(b.brand));
+  if (!TEST_TOKEN && !notChrome) {
+    // Chrome's own sign-in first.
+    try {
+      const r = await chrome.identity.getAuthToken({ interactive: true, scopes: [app.driveScope] });
+      const token = typeof r === "string" ? r : r && r.token;
+      if (token) return token;
+    } catch (e) {
+      if (/did not approve|cancel|denied|closed/i.test(String((e && e.message) || e))) throw Object.assign(new Error(SIGN_IN_CANCELLED), { kind: "auth" });
+      // Not available in this browser (Edge, Brave, …): sign in through Google's web page below.
+    }
+  }
+  return webSignIn();
+}
+
+/** Google's sign-in page in a browser window (chrome.identity.launchWebAuthFlow): works in Edge and Brave too. */
+async function webSignIn() {
+  if (/^OAUTH_WEB_CLIENT_ID/.test(WEB_CLIENT_ID)) throw Object.assign(new Error("Share works in Google Chrome for now. In this browser it isn't switched on yet."), { kind: "setup" });
+  const state = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, "0")).join("");
+  const url = new URL(AUTH_URL);
+  url.search = new URLSearchParams({ client_id: WEB_CLIENT_ID, response_type: "token", redirect_uri: chrome.identity.getRedirectURL(), scope: app.driveScope, state, include_granted_scopes: "true" }).toString();
+  let back;
+  try {
+    back = await chrome.identity.launchWebAuthFlow({ url: url.href, interactive: true });
+  } catch {
+    throw Object.assign(new Error(SIGN_IN_CANCELLED), { kind: "auth" }); // the user closed the window
+  }
+  const p = new URLSearchParams(new URL(back).hash.slice(1));
+  if (p.get("state") !== state || !p.get("access_token")) throw Object.assign(new Error(SIGN_IN_CANCELLED), { kind: "auth" });
+  const token = p.get("access_token");
+  await chrome.storage.session.set({ webToken: { token, exp: Date.now() + Number(p.get("expires_in") || 3600) * 1000 } });
   return token;
 }
 
@@ -492,6 +546,11 @@ const handlers = {
     await badge(null);
     await setState(IDLE, { replace: true });
   },
+  // The panel has shown the "Saved" card once: later openings show the main screen.
+  "done:seen": async () => {
+    const st = await getState();
+    if (["done", "error"].includes(st.phase) && !st.doneSeen) await setState({ doneSeen: true });
+  },
   show: async () => {
     const st = await getState();
     const id = st.gifId || (st.last && st.last.downloadId);
@@ -526,7 +585,10 @@ const handlers = {
     return { id: (await chrome.storage.local.get("driveFolder")).driveFolder || null };
   },
   "drive:drop-token": async (m) => {
-    if (!TEST_TOKEN && typeof m.token === "string") await chrome.identity.removeCachedAuthToken({ token: m.token }).catch(() => {});
+    if (typeof m.token !== "string") return;
+    const { webToken } = await chrome.storage.session.get("webToken");
+    if (webToken && webToken.token === m.token) await chrome.storage.session.remove("webToken");
+    else if (!TEST_TOKEN) await chrome.identity.removeCachedAuthToken({ token: m.token }).catch(() => {});
   },
   "rec:stopping": async (m) => {
     const st = await getState();

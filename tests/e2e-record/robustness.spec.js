@@ -213,3 +213,44 @@ const opfsNames = (sw) =>
     for await (const name of (await navigator.storage.getDirectory()).keys()) out.push(name);
     return out;
   });
+
+test("a start that fails leaves nothing stuck: back to idle, and if the browser still holds the page the message says how to get out", async () => {
+  // The fake screen-picker switch breaks tab capture: a dependable way to make a start fail.
+  const ctx = await launch({ display: true });
+  try {
+    const sw = await worker(ctx);
+    const page = ctx.pages()[0] || (await ctx.newPage());
+    await page.goto(`${server.base}/busy.html`);
+    const tabId = await tabIdOf(sw, server.base);
+    await setSettings(sw, { mode: "tab", sound: false, mic: false });
+    await call(sw, "start", { tabId });
+    const st = await waitPhase(sw, "error", 20_000);
+    expect(st.toast).toBe("The recording couldn't start. Try again.");
+    expect(await sw.evaluate(() => chrome.offscreen.hasDocument())).toBe(false);
+    await call(sw, "dismiss");
+    expect((await state(sw)).phase).toBe("idle");
+    const again = await call(sw, "start", { tabId });
+    expect(again.ok).toBe(false);
+    expect(again.error).toBe("Your browser is still holding this page after the last try. Close this tab and open the page again, or pick Screen.");
+    expect((await state(sw)).phase).toBe("idle");
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("closing the recorded tab saves the recording and says just that", async () => {
+  const { ctx, sw, page, tabId } = await setup();
+  try {
+    await ctx.newPage(); // the browser stays open
+    await call(sw, "start", { tabId });
+    await waitPhase(sw, "recording");
+    await new Promise((r) => setTimeout(r, 3_000));
+    await page.close();
+    const st = await waitPhase(sw, "done", 60_000);
+    expect(st.note).toBe("Recording saved.");
+    const info = await inspectMp4(bufferSource(readFileSync((await lastDownload(sw)).filename)));
+    expect(info.durationMs).toBeGreaterThan(1_500);
+  } finally {
+    await ctx.close();
+  }
+});

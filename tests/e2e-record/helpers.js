@@ -26,7 +26,7 @@ const DISPLAY_FLAGS = ["--use-fake-ui-for-media-stream", `--allowlisted-extensio
 // same tests in Edge (signed, still honours --load-extension). Branded Chrome ignores it.
 export const CHANNEL = process.env.E2E_CHANNEL || "chromium";
 
-export async function launch({ display = false, viewport = { width: 1280, height: 720 }, deviceScaleFactor = 1, colorScheme = "light", extDir = EXT_DIR, userDataDir = "" } = {}) {
+export async function launch({ display = false, viewport = { width: 1280, height: 720 }, deviceScaleFactor = 1, colorScheme = "light", extDir = EXT_DIR, userDataDir = "", extraArgs = [] } = {}) {
   const context = await chromium.launchPersistentContext(userDataDir, {
     channel: CHANNEL,
     headless: !process.env.HEADED,
@@ -35,7 +35,7 @@ export async function launch({ display = false, viewport = { width: 1280, height
     colorScheme,
     acceptDownloads: true,
     locale: "en-US",
-    args: [`--disable-extensions-except=${extDir}`, `--load-extension=${extDir}`, ...COMMON, ...(display ? DISPLAY_FLAGS : TAB_FLAGS)],
+    args: [`--disable-extensions-except=${extDir}`, `--load-extension=${extDir}`, ...COMMON, ...(display ? DISPLAY_FLAGS : TAB_FLAGS), ...extraArgs],
   });
   return context;
 }
@@ -86,9 +86,9 @@ export async function startServer() {
   return { base: `http://127.0.0.1:${server.address().port}`, close: () => new Promise((r) => server.close(r)) };
 }
 
-/** A fake Google Drive on the port the e2e build points at. Records what it was sent. */
+/** A fake Google Drive (and Google sign-in page) on the port the e2e build points at. Records what it was sent. */
 export async function startFakeDrive() {
-  const seen = { auth: new Set(), bytes: 0, files: [], permissions: [] };
+  const seen = { auth: new Set(), bytes: 0, files: [], permissions: [], signIns: [], denySignIn: false };
   const server = http.createServer(async (req, res) => {
     const u = new URL(req.url, "http://x");
     const chunks = [];
@@ -100,6 +100,14 @@ export async function startFakeDrive() {
     };
     if (req.method === "OPTIONS") {
       res.writeHead(204, { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, PUT", "Access-Control-Allow-Headers": "Authorization, Content-Type, Content-Range, X-Upload-Content-Type, X-Upload-Content-Length", "Access-Control-Expose-Headers": "Location, Range" });
+      return res.end();
+    }
+    // The web sign-in (launchWebAuthFlow): straight back to the extension with a token, or "denied".
+    if (u.pathname === "/o/oauth2/v2/auth") {
+      seen.signIns.push(Object.fromEntries(u.searchParams));
+      const state = u.searchParams.get("state");
+      const frag = seen.denySignIn ? `error=access_denied&state=${state}` : `access_token=test-token&token_type=Bearer&expires_in=3600&state=${state}`;
+      res.writeHead(302, { Location: `${u.searchParams.get("redirect_uri")}#${frag}` });
       return res.end();
     }
     if (u.pathname.startsWith("/session/")) {

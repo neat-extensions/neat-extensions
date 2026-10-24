@@ -52,8 +52,11 @@ test("help: seven numbered steps, each with a real screenshot", () => {
   const ways = [...html.matchAll(/<div class="way">.*?<b>([^<]+)<\/b>/g)].map((m) => m[1]);
   expect(ways).toEqual(["Draw a box", "Screen", "Window", "This page"]);
   expect(html).toContain("Only what is inside the box goes in the video. Everything outside stays out.");
-  expect(html).toContain("Sound is off in Window mode — Chrome can't record one window's sound. Use Screen or This page for sound.");
+  expect(html).toContain("Sound is off in Window mode — your browser can't record one window's sound. Use Screen or This page for sound.");
   expect(html).not.toMatch(/(^|[^A-Za-z])Tab([^A-Za-z]|$)/); // "This page" everywhere a reader can see
+  // Works in Edge too: "your browser", not "Chrome", in the steps; and how to set the shortcut if a browser left it unset.
+  expect(html).not.toMatch(/top right of Chrome|Chrome asks|Chrome can't|Chrome doesn't/);
+  expect(html).toContain("edge://extensions/shortcuts");
 });
 
 test("every page offers the support email", () => {

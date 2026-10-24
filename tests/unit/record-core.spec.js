@@ -1,6 +1,6 @@
 // Draw-a-box maths, the free limiter, quality presets, settings, file names.
 import { test, expect } from "@playwright/test";
-import { normaliseDrag, cropRect, captureSize, contentRect } from "../../apps/record/src/lib/crop.js";
+import { normaliseDrag, cropRect, captureSize, contentRect, fitHeight } from "../../apps/record/src/lib/crop.js";
 import { createLimiter, shouldShowLimitNote, dayKey } from "../../apps/record/src/lib/limiter.js";
 import { PRESETS, presetById, sizeLabel, videoBitrate, DEFAULT_PRESET } from "../../apps/record/src/lib/presets.js";
 import { normaliseSettings, fileName, pickFormat, avcLevel, clock } from "../../apps/record/src/lib/format.js";
@@ -207,4 +207,23 @@ test.describe("settings, names, formats", () => {
     expect(extensionIdFromKey(app.extensionKey)).toBe(app.extensionId);
     expect(app.extensionId).toMatch(/^[a-p]{32}$/);
   });
+});
+
+test.describe("screen size for each quality (fitHeight)", () => {
+  // Real monitors: the label's height, same shape — not a whole-number fraction of the screen.
+  for (const [w, h, max, want] of [
+    [2560, 1440, 1080, [1920, 1080]],
+    [2560, 1440, 720, [1280, 720]],
+    [2880, 1620, 1080, [1920, 1080]],
+    [3840, 2160, 2160, [3840, 2160]],
+    [3440, 1440, 1080, [2580, 1080]],
+    [1920, 1200, 1080, [1728, 1080]],
+    [1366, 768, 1080, [1366, 768]], // never enlarged
+    [1365, 767, 720, [1282, 720]],
+    [1365, 767, null, [1364, 766]],
+  ]) {
+    test(`${w}×${h} at ${max ?? "own size"} → ${want.join("×")}`, () => {
+      expect(Object.values(fitHeight(w, h, max))).toEqual(want);
+    });
+  }
 });

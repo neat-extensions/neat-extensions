@@ -9,7 +9,7 @@
 // bytes and slices of the raw file, handed to the service worker as a blob:
 // URL for the download. Nothing here touches the network except the Drive
 // upload, which only runs after the user pressed Share.
-import { cropRect } from "./lib/crop.js";
+import { cropRect, fitHeight } from "./lib/crop.js";
 import { createLimiter } from "./lib/limiter.js";
 import { presetById, videoBitrate, AUDIO_BPS } from "./lib/presets.js";
 import { fileSource, partsToBlob } from "./lib/bytes.js";
@@ -73,9 +73,11 @@ async function captureTab(streamId, size, withAudio) {
   return navigator.mediaDevices.getUserMedia({ video: { mandatory: v }, audio: withAudio ? { mandatory: { chromeMediaSource: "tab", chromeMediaSourceId: streamId } } : false });
 }
 
-async function captureDisplay(mode, preset, withAudio) {
+async function captureDisplay(mode, withAudio) {
+  // The screen at its own size (resizeMode "none"): Chrome would otherwise shrink a big screen by a whole
+  // number (2880×1620 → 1440×810 for "1080p"). frameTrack scales it to the preset's height instead.
   return navigator.mediaDevices.getDisplayMedia({
-    video: { displaySurface: mode === "window" ? "window" : "monitor", height: { ideal: Math.min(preset.height, 2160), max: preset.height }, frameRate: { ideal: 30, max: 30 } },
+    video: { displaySurface: mode === "window" ? "window" : "monitor", resizeMode: "none", frameRate: { ideal: 30, max: 30 } },
     audio: withAudio,
     systemAudio: withAudio ? "include" : "exclude",
     selfBrowserSurface: "exclude",
@@ -92,7 +94,7 @@ async function captureDisplay(mode, preset, withAudio) {
  * A resized window, a switched source or a resized/zoomed tab is scaled into
  * the fixed size instead of breaking the file. Paused: frames are dropped here.
  */
-function frameTrack(track, { box = null, viewport = null, isPaused }) {
+function frameTrack(track, { box = null, viewport = null, maxHeight = null, isPaused }) {
   const proc = new MediaStreamTrackProcessor({ track });
   const gen = new MediaStreamTrackGenerator({ kind: "video" });
   let size = null; // the encoder's size, fixed by the first frame
@@ -114,7 +116,7 @@ function frameTrack(track, { box = null, viewport = null, isPaused }) {
         if (k !== key) {
           key = k;
           rect = box ? cropRect(box, view.w, view.h, fw, fh) : { x: 0, y: 0, width: fw - (fw % 2), height: fh - (fh % 2) };
-          if (!size) size = { width: rect.width, height: rect.height };
+          if (!size) size = fitHeight(rect.width, rect.height, maxHeight);
           canvas = rect.width === size.width && rect.height === size.height ? null : new OffscreenCanvas(size.width, size.height);
         }
         if (!canvas) {
@@ -165,7 +167,7 @@ async function start(m) {
       video = s.getVideoTracks()[0];
       if (m.sound && s.getAudioTracks().length) soundStream = new MediaStream(s.getAudioTracks());
     } else {
-      const s = await captureDisplay(m.mode, preset, m.sound);
+      const s = await captureDisplay(m.mode, m.sound);
       streams.push(s);
       video = s.getVideoTracks()[0];
       if (s.getAudioTracks().length) soundStream = new MediaStream(s.getAudioTracks());
@@ -205,8 +207,10 @@ async function start(m) {
 
   let paused = false;
   const raw = await firstFrameSize(video);
-  const pipe = frameTrack(video, { box: m.mode === "box" ? m.box : null, viewport: m.viewport, isPaused: () => paused });
-  const out = m.mode === "box" ? cropRect(m.box, m.viewport.w, m.viewport.h, raw.width, raw.height) : { width: raw.width - (raw.width % 2), height: raw.height - (raw.height % 2) };
+  // Screen and Window arrive at their own size and are scaled to the preset here; tabs are captured at it already.
+  const display = m.mode === "screen" || m.mode === "window";
+  const pipe = frameTrack(video, { box: m.mode === "box" ? m.box : null, viewport: m.viewport, maxHeight: display ? preset.height : null, isPaused: () => paused });
+  const out = m.mode === "box" ? cropRect(m.box, m.viewport.w, m.viewport.h, raw.width, raw.height) : fitHeight(raw.width, raw.height, display ? preset.height : null);
   const fmt = pickFormat(!!audioTrack, out.width, out.height, (t) => MediaRecorder.isTypeSupported(t));
   const stamp = m.stamp || Date.now();
   const rawName = `rec-${stamp}.${fmt.ext}.raw`;

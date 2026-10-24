@@ -30,6 +30,9 @@ let settings = normaliseSettings(null);
 let pro = false;
 let state = { phase: "idle" };
 let tick = null;
+// The "Saved" card shows once, right after Stop: when this panel was open as the recording ended,
+// or on the first opening after it if nothing has shown it yet. Any later opening shows the main screen.
+let witnessed = false;
 const MAC = /Mac/i.test((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "");
 
 async function load() {
@@ -37,6 +40,15 @@ async function load() {
   settings = normaliseSettings(raw);
   pro = !!licence && (await verifyLicence(LICENCE_KEY, licence, app.licenceProduct, { revoked: app.revokedLicences })).ok;
   state = st && st.phase ? st : { phase: "idle" };
+  witnessed = !["idle", "done", "error"].includes(state.phase);
+}
+
+/** True when this opening of the panel should show the "Saved" card rather than the main screen. */
+function showDone() {
+  if (!["done", "error"].includes(state.phase)) return false;
+  // Something still needs the card: a save to retry, or a Share/Trim/GIF running.
+  if (witnessed || state.unsaved || state.job) return true;
+  return !state.doneSeen && !state.injected; // nothing has shown it yet (the page card counts)
 }
 
 const save = () => chrome.storage.local.set({ settings });
@@ -125,7 +137,7 @@ function paintIdle() {
     b.setAttribute("aria-pressed", String(!!settings[t.id] && (!t.pro || pro) && !(t.id === "sound" && noSound)));
     if (t.id === "sound") {
       b.disabled = noSound;
-      b.title = noSound ? (settings.mode === "window" ? "Sound is off in Window mode — Chrome can't record one window's sound. Use Screen or This page for sound." : "A Mac doesn't share the computer's sound. Use This page for sound.") : t.title;
+      b.title = noSound ? (settings.mode === "window" ? "Sound is off in Window mode — your browser can't record one window's sound. Use Screen or This page for sound." : "A Mac doesn't share the computer's sound. Use This page for sound.") : t.title;
     }
   }
   const q = presetById(settings.quality, { pro });
@@ -257,7 +269,12 @@ function trimPanel() {
 function paint() {
   paintPro();
   const live = ["starting", "choosing", "countdown", "recording", "saving"].includes(state.phase);
-  const done = ["done", "error"].includes(state.phase);
+  if (live) witnessed = true;
+  const done = showDone();
+  if (done && !state.doneSeen) {
+    witnessed = true; // keep it for this opening; marking it seen must not repaint it away
+    send({ type: "done:seen" });
+  }
   $("idle").hidden = live || done;
   $("live").hidden = !live;
   $("done").hidden = !done;
@@ -270,13 +287,13 @@ function paint() {
   await load();
   buildIdle();
   buildLive();
-  // One press for the next recording: close the last one and start with the same settings.
+  // Back to the main screen to set up the next recording (it doesn't start one).
   $("new").addEventListener("click", async () => {
     const r = await send({ type: "dismiss" });
     if (r && r.ok === false) return;
     state = { phase: "idle" };
+    witnessed = false;
     paint();
-    record();
   });
   $("copy").addEventListener("click", async () => {
     await navigator.clipboard.writeText($("done-link").value).catch(() => {});

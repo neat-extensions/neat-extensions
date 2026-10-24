@@ -1,6 +1,6 @@
 // The panel fits with no scroll bar at 100% zoom, in light and dark, in every
 // state, and is usable with the keyboard alone.
-import { test, expect, launch, worker, unlockPro, ID, RESULTS } from "./helpers.js";
+import { test, expect, launch, worker, unlockPro, ID, RESULTS, startServer, tabIdOf, setSettings, call, waitPhase, state } from "./helpers.js";
 import path from "node:path";
 import app from "../../apps/record/app.config.js";
 
@@ -116,4 +116,81 @@ test("nothing opens on install, and an idle extension has no recorder running", 
   } finally {
     await ctx.close();
   }
+});
+
+test.describe("the Saved card shows once, then the main screen", () => {
+  let server;
+  test.beforeAll(async () => (server = await startServer()));
+  test.afterAll(async () => server.close());
+
+  test("panel open at Stop shows it; Record again goes to the main screen without recording; reopening shows the main screen", async () => {
+    const ctx = await launch();
+    try {
+      const sw = await worker(ctx);
+      const page = ctx.pages()[0] || (await ctx.newPage());
+      await page.goto(`${server.base}/busy.html`);
+      const tabId = await tabIdOf(sw, server.base);
+      await setSettings(sw, { mode: "tab", sound: false, mic: false });
+      await call(sw, "start", { tabId });
+      await waitPhase(sw, "recording");
+      const panel = await ctx.newPage();
+      await panel.setViewportSize({ width: 344, height: 448 });
+      await panel.goto(`chrome-extension://${ID}/popup.html`);
+      await page.waitForTimeout(1_500);
+      await call(sw, "stop");
+      await waitPhase(sw, "done");
+      await expect(panel.locator("#done")).toBeVisible();
+      // Record again: back to the main screen; nothing starts.
+      await panel.locator("#new").click();
+      await expect(panel.locator("#idle")).toBeVisible();
+      await expect(panel.locator("#record")).toBeVisible();
+      await panel.waitForTimeout(1_000);
+      expect((await state(sw)).phase).toBe("idle");
+
+      // Another recording, stopped with the panel closed (the page shows its own card): the panel opens on the main screen.
+      await panel.close();
+      await call(sw, "start", { tabId });
+      await waitPhase(sw, "recording");
+      await page.waitForTimeout(1_500);
+      await call(sw, "stop");
+      await waitPhase(sw, "done");
+      await expect(page.locator("neat-record-ui").locator(".card")).toBeVisible();
+      await expect(page.locator("neat-record-ui").locator('[data-act="dismiss"]')).toBeVisible(); // the page card keeps its close button
+      const again = await ctx.newPage();
+      await again.goto(`chrome-extension://${ID}/popup.html`);
+      await expect(again.locator("#idle")).toBeVisible();
+      await expect(again.locator("#done")).toBeHidden();
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  test("page card gone (Screen, then the page was left): the first opening after Stop shows it once, later openings show the main screen", async () => {
+    const ctx = await launch({ display: true });
+    try {
+      const sw = await worker(ctx);
+      const page = ctx.pages()[0] || (await ctx.newPage());
+      await page.goto(`${server.base}/busy.html`);
+      const tabId = await tabIdOf(sw, server.base);
+      await setSettings(sw, { mode: "screen", sound: false, mic: false });
+      await call(sw, "start", { tabId });
+      await waitPhase(sw, "recording", 30_000);
+      await page.waitForTimeout(1_500);
+      await call(sw, "stop");
+      await waitPhase(sw, "done");
+      // The user leaves the page that had the card, so nothing has shown the result yet.
+      await page.goto(`${server.base}/player.html`);
+      await expect.poll(async () => (await state(sw)).injected).toBe(false);
+      const first = await ctx.newPage();
+      await first.goto(`chrome-extension://${ID}/popup.html`);
+      await expect(first.locator("#done")).toBeVisible();
+      await first.close();
+      const second = await ctx.newPage();
+      await second.goto(`chrome-extension://${ID}/popup.html`);
+      await expect(second.locator("#idle")).toBeVisible();
+      await expect(second.locator("#done")).toBeHidden();
+    } finally {
+      await ctx.close();
+    }
+  });
 });
