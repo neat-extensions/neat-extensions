@@ -92,7 +92,7 @@ async function sign(privateJwkText, { product, sub }) {
   return encodeLicence(payload, async (bytes) => new Uint8Array(await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, key, bytes)));
 }
 
-async function mail(env, rec) {
+export async function mail(env, rec) {
   const product = `${BRAND} Record`;
   const body = {
     sender: { name: env.MAIL_FROM_NAME || BRAND, email: env.MAIL_FROM },
