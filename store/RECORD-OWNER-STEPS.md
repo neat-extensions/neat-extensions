@@ -11,9 +11,12 @@ not been submitted:
 Open every link with `npm run open -- <link>` from `C:\Projects\Extension Factory`,
 so it opens in the **arcan2252@gmail.com** Chrome profile.
 
-Order: **Part 1** (send me the client ID), then **Part 2** (the store screens).
-Don't press **Submit for review** anywhere. I upload the final package once I
-have the client ID.
+**Part 1 is done** (client `60013913850-g4iv…apps.googleusercontent.com`,
+2026-10-24). The final release package `dist\neat-record-1.0.0.zip` is uploaded
+to the draft. The licence Worker fix is deployed.
+
+**Left for you:** Part 2 (the store screens). Then press **Submit for review**
+on the item, or tell me to submit it.
 
 ---
 
@@ -135,8 +138,8 @@ Click **Distribution** in the left menu.
 | Visibility | **Public** |
 | Regions | **All regions** |
 
-Click **Save draft**. **Don't press Submit for review.** I upload the final
-package after your client ID, and then you submit (or tell me to).
+Click **Save draft**. The final package is already uploaded: when every tab
+is saved with no red errors, press **Submit for review** (or tell me to).
 
 ---
 

@@ -19,7 +19,7 @@ export default {
   // Google Cloud → APIs & Services → Credentials → OAuth client (type "Chrome Extension",
   // item ID = extensionId). Owner step: store/RECORD-OWNER-STEPS.md. Until it is set,
   // Share to Drive says it is not set up yet; --release refuses the placeholder.
-  oauthClientId: "OAUTH_CLIENT_ID.apps.googleusercontent.com",
+  oauthClientId: "60013913850-g4ivgchfjvt57dgpna8vb95sro5pdh69.apps.googleusercontent.com",
   driveScope: "https://www.googleapis.com/auth/drive.file",
   // Public half of .secrets/licence-private.jwk (scripts/licence-sign.mjs).
   licencePublicKey: { kty: "EC", crv: "P-256", x: "o4PFK7bPn2hjfql_HtvDGUXXnExckr1gBDav74IWKcU", y: "BfGeyMQjunl63SIfkzdg1EAIg3rUC0uVGzJoORLRqE0" },
