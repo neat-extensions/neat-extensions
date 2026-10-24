@@ -1,0 +1,10 @@
+{
+  "live": {
+    "product_id": "prod_VV1X7uHakKX9SA",
+    "price_id": "price_1UU1UTKQkt4VVAqMwa6aOxWu",
+    "currency": "usd",
+    "unit_amount": 999,
+    "tax_behavior": "inclusive",
+    "tax_code": "txcd_10202000"
+  }
+}

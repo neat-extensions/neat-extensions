@@ -20,6 +20,7 @@
     "cws:status": "node scripts/cws.mjs status",
     "cws:upload": "node scripts/cws.mjs upload",
     "cws:publish": "node scripts/cws.mjs publish",
+    "stripe:setup": "node scripts/stripe-setup.mjs",
     "release:ship": "node scripts/ship.mjs",
     "finder": "node tools/finder/finder.mjs"
   },
