@@ -2,6 +2,7 @@
 // state, and is usable with the keyboard alone.
 import { test, expect, launch, worker, unlockPro, ID, RESULTS } from "./helpers.js";
 import path from "node:path";
+import app from "../../apps/record/app.config.js";
 
 const STATES = {
   idle: { phase: "idle" },
@@ -98,7 +99,7 @@ test("free: Pro items show a small lock and open the Pro page, nothing else", as
     await expect(page.locator("#quality-caption")).toHaveText("1080p HD · ~20 MB a minute · Free: up to 10 minutes");
     const [pro] = await Promise.all([ctx.waitForEvent("page"), page.locator('.toggle[data-id="camera"]').click()]);
     await expect(pro).toHaveURL(new RegExp(`chrome-extension://${ID}/pro.html`));
-    await expect(pro.getByText("Get Pro — coming soon")).toBeVisible();
+    await expect(pro.getByRole("link", { name: `Get Pro — ${app.price}` })).toHaveAttribute("href", app.buyUrl);
   } finally {
     await ctx.close();
   }

@@ -3,7 +3,7 @@
 //  2. draw-a-box crop: VideoFrame visibleRect vs canvas drawImage (pixels and time per frame);
 //  3. bundle size on disk.
 // Results: test-results/record-measure.json.
-import { test, expect, launch, worker, startServer, tabIdOf, recordFor, unlockPro, RESULTS, EXT_DIR } from "./helpers.js";
+import { test, expect, launch, worker, startServer, tabIdOf, recordFor, unlockPro, RESULTS, EXT_DIR, CHANNEL } from "./helpers.js";
 import { chromium } from "@playwright/test";
 import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -57,7 +57,7 @@ test("file size per minute for each quality, on a busy page", async () => {
 });
 
 test("draw-a-box crop: visibleRect keeps every pixel and costs least", async () => {
-  const browser = await chromium.launch({ channel: "chromium", args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"] });
+  const browser = await chromium.launch({ channel: CHANNEL, args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"] });
   try {
     const page = await browser.newPage();
     await page.goto(`${server.base}/player.html`);

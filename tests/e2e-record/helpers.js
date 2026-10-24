@@ -22,10 +22,13 @@ const FIXTURES = path.join(ROOT, "tests", "fixtures", "record");
 const COMMON = ["--autoplay-policy=no-user-gesture-required", "--use-fake-device-for-media-stream"];
 const TAB_FLAGS = ["--auto-accept-camera-and-microphone-capture", "--auto-accept-this-tab-capture", `--allowlisted-extension-id=${ID}`];
 const DISPLAY_FLAGS = ["--use-fake-ui-for-media-stream", `--allowlisted-extension-id=${ID}`];
+// Windows Smart App Control blocks Playwright's unsigned Chromium; E2E_CHANNEL=msedge runs the
+// same tests in Edge (signed, still honours --load-extension). Branded Chrome ignores it.
+export const CHANNEL = process.env.E2E_CHANNEL || "chromium";
 
 export async function launch({ display = false, viewport = { width: 1280, height: 720 }, deviceScaleFactor = 1, colorScheme = "light", extDir = EXT_DIR, userDataDir = "" } = {}) {
   const context = await chromium.launchPersistentContext(userDataDir, {
-    channel: "chromium",
+    channel: CHANNEL,
     headless: !process.env.HEADED,
     viewport,
     deviceScaleFactor,

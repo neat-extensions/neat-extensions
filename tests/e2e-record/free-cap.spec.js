@@ -33,7 +33,8 @@ test("the free 10-minute limit stops, saves cleanly and says so once a day", asy
     expect(st.note).toBe("Saved. Pro removes the 10-minute limit");
     // Shown in the page as one quiet line in the saved card — not a popup, no new tab.
     await expect(page.locator("neat-record-ui").locator(".note")).toHaveText("Saved. Pro removes the 10-minute limit");
-    expect(ctx.pages().length).toBe(1);
+    // Edge opens its own edge://downloads-hub after a download; only our tabs count.
+    expect(ctx.pages().map((p) => p.url()).filter((u) => !u.startsWith("edge://")), "no new tab").toHaveLength(1);
     const d = await lastDownload(sw);
     const info = await inspectMp4(bufferSource(readFileSync(d.filename)));
     expect(info.durationMs).toBeGreaterThan(19_000);
