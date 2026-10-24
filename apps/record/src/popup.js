@@ -220,7 +220,9 @@ function paintDone() {
       b.addEventListener("click", () => (locked ? openPro() : type === "trim" ? trimPanel() : send({ type })));
       return b;
     };
-    acts.append(state.unsaved ? btn("folder", "Save again", "save-again", false) : btn("folder", "Show file", "show", false), btn("link", "Share", "share", !pro), btn("scissors", "Trim", "trim", !pro), btn("gif", "GIF (30 s)", "gif", !pro));
+    acts.append(state.unsaved ? btn("folder", "Save again", "save-again", false) : btn("folder", "Show file", "show", false));
+    // Share, Trim and GIF need the file's index (its length); a recording saved without one only gets Show file.
+    if (!last.unindexed) acts.append(btn("link", "Share", "share", !pro), btn("scissors", "Trim", "trim", !pro), btn("gif", "GIF (30 s)", "gif", !pro));
   }
   $("done-toast").textContent = state.job ? (state.job.kind === "share" ? `Uploading… ${Math.round((state.job.fraction || 0) * 100)}%` : "Working…") : state.toast || state.note || "";
   $("done-linkrow").hidden = !state.link;

@@ -10,6 +10,8 @@ export const BRAND_SLUG = BRAND.toLowerCase().replace(/[^a-z0-9]+/g, "-").replac
 export const SITE_URL = "https://neatextensions.com/";
 export const OLD_SITE_URL = "https://neat-extensions.github.io/neat-extensions/";
 export const LICENCE_URL = "https://licence.neatextensions.com";
+// Support and privacy requests (Cloudflare Email Routing → the owner's inbox).
+export const SUPPORT_EMAIL = "hello@neatextensions.com";
 
 /** <head> lines for a docs/ page at `pagePath` (e.g. "record/help.html"): its canonical
  *  address, and on github.io a hop to the same page on SITE_URL. */

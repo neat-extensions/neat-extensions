@@ -12,6 +12,13 @@ test.beforeAll(async () => {
   realFetch = globalThis.fetch;
 });
 test.afterEach(() => (globalThis.fetch = realFetch));
+// The Worker's edge cache (caches.default), in memory.
+function freshCache() {
+  const m = new Map();
+  globalThis.caches = { default: { match: async (r) => (m.has(r.url) ? new Response(m.get(r.url)) : undefined), put: async (r, res) => m.set(r.url, await res.text()) } };
+}
+test.beforeEach(freshCache);
+test.afterAll(() => delete globalThis.caches);
 
 function kv() {
   const m = new Map();
@@ -66,9 +73,57 @@ test.describe("licence Worker", () => {
     const stored = JSON.parse(e.LICENCES.m.get(`session:${SESSION}`));
     expect(stored.email).toBe("");
     expect(stored.sub).toMatch(/^[A-Za-z0-9_-]{16}$/);
-    // The key's subject is random, not derived from the buyer.
+    // The key's subject is the stored one (derived from the session id, not from the buyer).
     const payload = JSON.parse(Buffer.from(key.split(".")[0], "base64url").toString());
     expect(payload.sub).toBe(stored.sub);
+  });
+
+  const subOf = (key) => JSON.parse(Buffer.from(key.split(".")[0], "base64url").toString()).sub;
+
+  test("two first visits racing past KV give keys with the same subject (one refund revokes both)", async () => {
+    stub();
+    const a = keyFrom(await (await get(`/success?session_id=${SESSION}`, env())).text());
+    const b = keyFrom(await (await get(`/success?session_id=${SESSION}`, env())).text()); // fresh KV: nothing stored yet
+    expect(subOf(a)).toBe(subOf(b));
+    expect(a).not.toBe(b); // still two signatures: only the subject is shared
+  });
+
+  test("KV refusing the write (daily quota) still shows the buyer a valid key", async () => {
+    stub();
+    const e = env();
+    e.LICENCES.put = async () => {
+      throw new Error("KV put() limit exceeded for the day");
+    };
+    const res = await get(`/success?session_id=${SESSION}`, e);
+    expect(res.status).toBe(200);
+    expect((await verifyLicence(keys.publicJwk, keyFrom(await res.text()), "record")).ok).toBe(true);
+  });
+
+  test("unknown ids are not written to KV (its daily write quota is kept for buyers)", async () => {
+    stub({ stripeStatus: 404 });
+    const e = env();
+    await get(`/success?session_id=${SESSION}`, e);
+    expect(e.LICENCES.m.size).toBe(0);
+  });
+
+  test("after 5 failed emails the address is dropped, the key stays", async () => {
+    const e = env();
+    for (let i = 0; i < 5; i++) {
+      stub({ mailOk: false });
+      await get(`/success?session_id=${SESSION}`, e);
+    }
+    const stored = JSON.parse(e.LICENCES.m.get(`session:${SESSION}`));
+    expect(stored.email).toBe("");
+    expect(stored.emailed).toBe(false);
+    const calls = stub();
+    expect(await (await get(`/success?session_id=${SESSION}`, e)).text()).toContain("Copy it now");
+    expect(calls.mail).toHaveLength(0);
+  });
+
+  test("support links can be an email address", async () => {
+    stub({ stripeStatus: 404 });
+    const html = await (await get(`/success?session_id=${SESSION}`, env({ SUPPORT_URL: "mailto:hello@example.com" }))).text();
+    expect(html).toContain('<a href="mailto:hello@example.com">hello@example.com</a>');
   });
 
   test("the page's inline style and script match the CSP hashes", async () => {
@@ -124,9 +179,11 @@ test.describe("licence Worker", () => {
     let r = await get(`/success?session_id=${SESSION}`, env());
     expect(r.status).toBe(402);
     expect(await r.text()).not.toContain('class="key"');
+    freshCache(); // each case is a different session in real life
     stub({ session: { line_items: { data: [{ price: { id: "price_other" } }] } } });
     r = await get(`/success?session_id=${SESSION}`, env());
     expect(r.status).toBe(400);
+    freshCache();
     stub({ stripeStatus: 404 });
     r = await get(`/success?session_id=${SESSION}`, env());
     expect(r.status).toBe(404);

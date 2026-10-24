@@ -11,7 +11,7 @@ import { execFileSync } from "node:child_process";
 import { mkdir, writeFile, readFile, rm, cp } from "node:fs/promises";
 import path from "node:path";
 import http from "node:http";
-import { BRAND, movedHead } from "../brand.config.js";
+import { BRAND, movedHead, SUPPORT_EMAIL } from "../brand.config.js";
 import app from "../apps/record/app.config.js";
 import * as listing from "../apps/record/listing.js";
 import { PRESETS, sizeLabel } from "../apps/record/src/lib/presets.js";
@@ -61,22 +61,23 @@ await writeFile(
       description: listing.description,
       category: listing.category,
       language: listing.language,
-      singlePurpose: "Record the user's screen — a box drawn on a web page, the whole screen, one window, or the current web page — and save the video to the user's computer.",
+      singlePurpose: "Record the user's screen — a box drawn on a web page, the whole screen, one window, or the current tab — save the video to the user's computer, and optionally share it through the user's own Google Drive.",
       permissionJustifications: {
         tabCapture: "Records the current tab (and the part of it inside a drawn box) when the user presses Record.",
         offscreen: "Runs the recorder (capture, encoding and saving) in an offscreen document, because a service worker cannot record media.",
         activeTab: "Lets the extension act only on the tab where the user clicked its icon or pressed its shortcut: to record that tab and show the recording controls there.",
         scripting: "Shows the draw-a-box overlay, the small recording bar, the webcam bubble and the 'saved' card on that same tab, from a file inside the extension. Only after the user clicks; never on its own.",
         downloads: "Saves the finished video (and trimmed copies or GIFs the user asks for) to the user's Downloads folder.",
-        storage: "Remembers the user's choices (mode, microphone, sound, quality) and, if bought, the Pro licence key.",
+        storage: "Remembers the user's choices (mode, microphone, sound, quality), the ID of the 'Neat' folder in the user's Drive if Share was used, the date the 10-minute note was last shown, and, if bought, the Pro licence key.",
         identity: "Only for Share (Pro): asks Google, after the user presses Share and clicks Allow, for permission to create files in the user's own Drive (drive.file scope) and uploads that one video.",
         "web_accessible_resources (camera.html)": "The webcam bubble (Pro) is a small extension page shown on the recorded tab, so the camera appears in the recording. It is loaded with a dynamic URL.",
-        "commands (Alt+Shift+R)": "Keyboard shortcut to start and stop recording (Pro).",
+        "commands (Alt+Shift+R)": "Keyboard shortcut: stops a recording (anyone) or starts one (Pro).",
         hostPermissions: "None.",
       },
       remoteCode: "No. All code is in the package. The only network use is Google Drive (googleapis.com), and only after the user presses Share.",
       dataUsage: {
-        collected: "None by the extension. Videos are recorded and encoded on the user's computer and saved to their Downloads folder. (Buying Pro happens on a web page outside the extension; its data handling is in the privacy policy.)",
+        collected: "Website content — only when the user presses Share (Pro): the one recording they chose is uploaded straight from the browser to the user's own Google Drive. The developer never receives it. Nothing else is collected; otherwise videos are recorded, encoded and saved on the user's computer. (Buying Pro happens on a web page outside the extension; its data handling is in the privacy policy.)",
+        formAnswer: "Tick only 'Website content'. Leave every other data type unticked.",
         driveShare:
           "When the user presses Share (Pro), the chosen video is uploaded to the user's own Google Drive using Google's drive.file scope (the extension can only see files it created) and set to 'anyone with the link can view'. The developer never receives the video, the link or any account data.",
         certifications: ["Does not sell or transfer user data to third parties", "Does not use or transfer user data for purposes unrelated to the single purpose", "Does not use or transfer user data to determine creditworthiness or for lending"],
@@ -89,7 +90,7 @@ await writeFile(
       privacyPolicy: "privacy.html",
       privacyPolicyUrl: listing.privacyPolicyUrl,
       homepageUrl: listing.siteUrl,
-      supportUrl: `${listing.sourceUrl}/issues`,
+      supportUrl: `mailto:${SUPPORT_EMAIL}`,
       sourceUrl: listing.sourceUrl,
     },
     null,
@@ -121,17 +122,19 @@ ${movedHead("record/privacy.html")}<style>${pageCss}</style></head>
 <h2>Your videos</h2>
 <p>Recording, encoding and saving happen on your computer. The finished video goes to your Downloads folder. While it is being made it is kept in the extension's private storage on your computer and deleted once it is saved. Pro keeps the last video there until you close the "Saved" card, start a new recording or restart Chrome, so Share, Trim and GIF can use it. If Chrome or the computer stops in the middle of a recording, what was recorded is saved to Downloads the next time Chrome starts, then deleted from the extension's storage.</p>
 <h2>Share to Google Drive (Pro, optional)</h2>
-<p>Only when you press <strong>Share</strong>, Chrome asks Google for permission for ${esc(app.productName)} to create files in your Google Drive. It uses Google's <code>drive.file</code> permission: the extension can see and change <em>only the files it created itself</em> — never anything else in your Drive. The video you chose is uploaded straight from your browser to your own Drive, into a folder called "${esc(BRAND)}", and set so that anyone with the link can view it. The link is copied for you. We never receive the video, the link, your Google account or your email address. You can remove the permission at any time at <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>, and delete shared videos in Drive.</p>
+<p>Only when you press <strong>Share</strong>, Chrome asks Google for permission for ${esc(app.productName)} to create files in your Google Drive. It uses Google's <code>drive.file</code> permission: the extension can see and change <em>only the files it created itself</em> — never anything else in your Drive. The video you chose is uploaded straight from your browser to your own Drive, into a folder called "${esc(BRAND)}", and set so that anyone with the link can view it. The link is copied for you. Sharing never sends us the video, the link, your Google account or your email address. You can remove the permission at any time at <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>, and delete shared videos in Drive.</p>
 <p>${esc(app.productName)}'s use of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
 <h2>What is remembered on your computer</h2>
 <p>Your choices (what to record, microphone, sound, quality), the id of the "${esc(BRAND)}" folder in your Drive if you used Share, and the date the 10-minute note was last shown. If you buy Pro, your licence key is kept in Chrome's sync storage so your other computers signed in to Chrome unlock too. Uninstalling the extension deletes all of it.</p>
 <h2>Buying Pro</h2>
 <p>Payment is handled by Stripe on Stripe's own page; we never see your card. After you pay, our small licence service (running on Cloudflare) asks Stripe whether the payment went through, makes your key, and shows it to you.</p>
 <ul>
-<li><strong>What it keeps:</strong> the key, a random id for it (used only if you ask for a refund or a key is shared publicly), the purchase id and the date — so the same key can be shown again if you reload the page. This contains nothing about who you are.</li>
-<li><strong>Your email address</strong> (from Stripe) is used once, to email you the key through <a href="https://www.brevo.com/legal/privacypolicy/">Brevo</a>, our email sender, and is deleted from our licence service as soon as the email has gone out. Stripe keeps its own receipt records — see <a href="https://stripe.com/privacy">Stripe's privacy policy</a>.</li>
+<li><strong>What it keeps:</strong> the key, an id for it made from the purchase id (used only if you ask for a refund or a key is shared publicly), the purchase id and the date — so the same key can be shown again if you reload the page. This contains nothing about who you are.</li>
+<li><strong>Your email address</strong> (from Stripe) is used once, to email you the key through <a href="https://www.brevo.com/legal/privacypolicy/">Brevo</a>, our email sender, and is deleted from our licence service as soon as the email has gone out (or after five failed tries). Brevo keeps a log of sent emails for a short time under its own policy.</li>
+<li><strong>Stripe</strong> sells Pro for us (Stripe Managed Payments) and collects what it needs for the payment and for tax, such as your country. Stripe keeps its own receipt records — see <a href="https://stripe.com/privacy">Stripe's privacy policy</a>.</li>
+<li>Our licence service runs on Cloudflare, which processes your IP address to deliver the page.</li>
 <li>The key itself contains no personal data. It is stored in Chrome's sync storage so your other computers signed in to Chrome unlock too.</li>
-<li>To have your purchase record deleted, open an issue (below) with the last characters of your key.</li>
+<li>To have your purchase record deleted, email <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a> with the last 6 characters of your key.</li>
 </ul>
 <h2>Permissions</h2>
 <ul>
@@ -139,13 +142,14 @@ ${movedHead("record/privacy.html")}<style>${pageCss}</style></head>
 <li><strong>Downloads</strong> — to save your video.</li>
 <li><strong>Act on the current tab when you click</strong> (activeTab, scripting) — to show the box, the recording bar, the webcam bubble and the "Saved" card on that tab. Never on its own.</li>
 <li><strong>Google sign-in</strong> (identity) — only for Share, only after you click it.</li>
+<li><strong>Microphone and camera</strong> (Chrome asks the first time) — your voice and your face go only into the video on your computer.</li>
 <li><strong>Storage</strong> — your choices, as above.</li>
 </ul>
 <h2>Children</h2><p>The extension collects no data from anyone, including children.</p>
 <h2>Changes</h2><p>If this policy changes, the new version is published here before the change takes effect.</p>
-<h2>Contact</h2><p>Open an issue at <a href="${esc(listing.sourceUrl)}/issues">${esc(listing.sourceUrl.replace("https://", ""))}/issues</a>.</p>
+<h2>Contact</h2><p>Email <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a>, or open an issue at <a href="${esc(listing.sourceUrl)}/issues">${esc(listing.sourceUrl.replace("https://", ""))}/issues</a>.</p>
 <p class="muted">${esc(BRAND)} is not affiliated with or endorsed by Google.</p>
-<footer><a href="help.html">Help</a><a href="pro.html">Pro</a><a href="${esc(listing.sourceUrl)}">Source code</a></footer>
+<footer><a href="help.html">Help</a><a href="pro.html">Pro</a><a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a><a href="${esc(listing.sourceUrl)}">Source code</a></footer>
 </main></body></html>
 `;
 await writeFile(path.join(OUT, "privacy.html"), privacy("help.html"));
@@ -216,7 +220,7 @@ const help = (imgs) => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>How to record your screen — ${esc(app.productName)}</title>
 ${movedHead("record/help.html")}
-<meta name="description" content="Record part of a web page, your whole screen, a window or the page you're on, in Chrome. Draw a box, press Record, your video is in Downloads.">
+<meta name="description" content="Record part of a web page, your whole screen, a window or the page you're on, in Chrome. Press Record, draw a box, your video is in Downloads.">
 <link rel="icon" href="icon-128.png">
 <style>${pageCss}
 .step{display:grid;grid-template-columns:72px 1fr;gap:20px;margin:40px 0;align-items:start}
@@ -231,7 +235,7 @@ ${movedHead("record/help.html")}
 <body><main>
 <a class="brand" href="help.html"><img src="icon-128.png" alt="">${esc(app.productName)}</a>
 <h1>How to record your screen</h1>
-<p class="muted">Four steps. Then three more if you want to share it.</p>
+<p class="muted">There are 4 ways to record. Pick one. Then follow the steps.</p>
 <h2 id="ways">Four ways to record</h2>
 <div class="ways">
 ${WAYS.map((w) => `<div class="way"><span class="way-icon">${svg(w.icon, 28)}</span><div><b>${esc(w.name)}</b> — ${esc(w.text)}${w.note ? `<p class="muted way-note">${esc(w.note)}</p>` : ""}</div></div>`).join("\n")}
@@ -254,7 +258,7 @@ ${PRESETS.map((p) => `<div class="level"><b>${esc(p.label)}${p.pro ? '<span clas
 <li><b>The camera circle says “Camera blocked”</b> — some websites don't allow cameras. Turn Camera off for that site, or allow the camera in the address bar.</li>
 <li><b>Chrome asked where to save, and you closed that window</b> — press <b>Save again</b>.</li>
 </ul>
-<footer><a href="pro.html">Pro</a><a href="privacy.html">Privacy</a><a href="${esc(listing.sourceUrl)}">Source code</a></footer>
+<footer><a href="pro.html">Pro</a><a href="privacy.html">Privacy</a><a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a><a href="${esc(listing.sourceUrl)}">Source code</a></footer>
 </main></body></html>
 `;
 
@@ -283,12 +287,21 @@ ${placeholderBuy ? `<span class="btn" id="buy" role="link" aria-disabled="true" 
 <h2>After you buy</h2>
 <p>You get a key straight away, on the screen and by email. It's a long line of letters.</p>
 <ol><li>Click the ${esc(app.productName)} icon.</li><li>Press <b>Pro</b>.</li><li>Paste the key and press <b>Unlock Pro</b>.</li></ol>
-<p>Other computers where you use the same Chrome sign-in unlock by themselves.</p>
+<p>If Chrome sync is on, your other computers with the same Chrome sign-in unlock by themselves.</p>
+<p>Questions or a problem with your key? Email <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a>.</p>
 <p class="muted">${esc(TERMS)} No account. No monthly fee.</p>
-<footer><a href="help.html">Help</a><a href="privacy.html">Privacy</a><a href="${esc(listing.sourceUrl)}">Source code</a></footer>
+<footer><a href="help.html">Help</a><a href="privacy.html">Privacy</a><a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a><a href="${esc(listing.sourceUrl)}">Source code</a></footer>
 </main></body></html>
 `;
 await writeFile(path.join(DOCS, "pro.html"), proPage);
+// neatextensions.com/record/ itself: send people to the help page.
+await writeFile(
+  path.join(DOCS, "index.html"),
+  `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(app.productName)}</title>
+${movedHead("record/help.html")}<meta http-equiv="refresh" content="0; url=help.html"></head>
+<body><p><a href="help.html">${esc(app.productName)} — how to record your screen</a></p></body></html>
+`,
+);
 
 if (args.includes("--no-shots")) {
   console.log("store/record text and docs/record pages written (screenshots skipped)");
@@ -325,7 +338,7 @@ const drive = http.createServer(async (req, res) => {
 await new Promise((r) => drive.listen(47123, "127.0.0.1", r));
 
 const ctx = await chromium.launchPersistentContext("", {
-  channel: "chromium",
+  channel: process.env.E2E_CHANNEL || "chromium", // msedge where Smart App Control blocks Chromium
   headless: true,
   viewport: { width: 1280, height: 800 },
   deviceScaleFactor: 2,
@@ -427,6 +440,20 @@ function arrow(from, to, ring = 30) {
 <path d="${line}" stroke="#d6363c" stroke-width="10"/><path d="M${ax} ${ay} L${tip.x} ${tip.y} L${bx} ${by}" stroke="#d6363c" stroke-width="10"/></g>`;
 }
 
+/** An arrow to a rounded frame drawn around `box` ({x, y, width, height}), so the button's word stays readable. */
+function arrowToBox(from, box, pad = 10) {
+  const c = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  const hw = box.width / 2 + pad;
+  const hh = box.height / 2 + pad;
+  const dx = from.x - c.x;
+  const dy = from.y - c.y;
+  const t = Math.min(dx ? hw / Math.abs(dx) : Infinity, dy ? hh / Math.abs(dy) : Infinity);
+  const edge = Math.hypot(dx * t, dy * t);
+  const frame = `<rect x="${c.x - hw}" y="${c.y - hh}" width="${hw * 2}" height="${hh * 2}" rx="14" fill="none" stroke="#fff" stroke-width="12"/><rect x="${c.x - hw}" y="${c.y - hh}" width="${hw * 2}" height="${hh * 2}" rx="14" fill="none" stroke="#d6363c" stroke-width="6"/>`;
+  // arrow() with an invisible ring of the frame's size: its tip stops just outside the frame.
+  return frame + arrow(from, c, edge).replace(/<circle[^>]*\/>/g, "");
+}
+
 async function render(html, file, { w = 1280, h = 800 } = {}) {
   await comp.setViewportSize({ width: w, height: h });
   await comp.setContent(`<!doctype html><html><head><meta charset="utf-8"><style>${TOKENS.replaceAll(":host, :root", ":root")}*{box-sizing:border-box}html,body{margin:0;width:${w}px;height:${h}px;overflow:hidden;font-family:var(--font);color-scheme:light}</style></head><body>${html}</body></html>`);
@@ -456,18 +483,18 @@ const steps = [];
 // ① Click the icon
 await render(withToolbar(popupIdle.buf, "icon") + svgLayer(arrow({ x: 640, y: 150 }, ICON_AT, 26)), path.join(helpDir, "help-1-icon.png"));
 steps.push({ title: `Click the ${app.productName} icon`, text: `It's at the top right of Chrome. If you can't see it, click the puzzle piece and pin ${esc(app.productName)}.`, img: "help-1-icon.png", alt: "The extension's icon in Chrome's toolbar, with its panel open" });
-// ② Draw a box
-await render(full(shotDrag) + svgLayer(arrow({ x: 1090, y: 700 }, { x: 800, y: 590 }, 28)), path.join(helpDir, "help-2-draw.png"));
-steps.push({ title: "Pick “Draw a box”, then drag", text: "Press and hold on the page, move to make a box around what you want, then let go. Changed your mind? Press <b>Esc</b>.", img: "help-2-draw.png", alt: "A box being dragged over part of a web page; the rest is darker" });
-// ③ Press Record
+// ② Pick a way, press Record (the panel closes)
 const recAt = { x: POP.x + popupIdle.record.x + popupIdle.record.width / 2, y: POP.y + popupIdle.record.y + popupIdle.record.height / 2 };
-await render(withToolbar(popupIdle.buf, "") + svgLayer(arrow({ x: 380, y: 520 }, recAt, 56)), path.join(helpDir, "help-3-record.png"));
-steps.push({ title: "Press Record", text: "The big red button. Recording starts at once — no account, nothing to sign up for.", img: "help-3-record.png", alt: "The panel with an arrow pointing at the big round Record button" });
+await render(withToolbar(popupIdle.buf, "") + svgLayer(arrow({ x: 380, y: 520 }, recAt, 56)), path.join(helpDir, "help-2-record.png"));
+steps.push({ title: "Pick a way. Press Record.", text: "Pick <b>Draw a box</b>, <b>Screen</b>, <b>Window</b> or <b>This page</b>. Then press the big red button. The panel closes.", img: "help-2-record.png", alt: "The panel with an arrow pointing at the big round Record button" });
+// ③ Draw the box (Screen and Window: Chrome asks what to share instead)
+await render(full(shotDrag) + svgLayer(arrow({ x: 1090, y: 700 }, { x: 800, y: 590 }, 28)), path.join(helpDir, "help-3-draw.png"));
+steps.push({ title: "Draw your box", text: "Press and hold on the page. Move to make a box. Let go. Recording starts now. Changed your mind? Press <b>Esc</b>.<br>Picked Screen or Window? Chrome asks what to share. Click it, then <b>Share</b>.", img: "help-3-draw.png", alt: "A box being dragged over part of a web page; the rest is darker" });
 // ④ Press Stop
 await render(full(shotRec) + svgLayer(arrow({ x: 1050, y: 760 }, { x: stopBox.x + stopBox.width / 2, y: stopBox.y + stopBox.height / 2 }, 34)), path.join(helpDir, "help-4-stop.png"));
-steps.push({ title: "Press Stop — your video is in Downloads", text: `The little bar next to your box shows the time. Press <b>Stop</b>: the video is saved in your <b>Downloads</b> folder straight away. Recording the Screen, a Window or This page? Then there's no bar (it would end up in your video): click the ${esc(app.productName)} icon and press <b>Stop</b>, or Chrome's own <b>Stop sharing</b> button.`, img: "help-4-stop.png", alt: "The small recording bar with a timer and a Stop button, next to the box" });
+steps.push({ title: "Press Stop. Your video is in Downloads.", text: `Press <b>Stop</b> on the little bar. Your video is in your <b>Downloads</b> folder.<br>Recording the Screen, a Window or This page? There is no bar. Click the ${esc(app.productName)} icon and press <b>Stop</b>.`, img: "help-4-stop.png", alt: "The small recording bar with a timer and a Stop button, next to the box" });
 // ⑤ Press Share
-await render(full(shotShared) + svgLayer(arrow({ x: 600, y: 420 }, { x: proCardShareBox.x + proCardShareBox.width / 2, y: proCardShareBox.y + proCardShareBox.height / 2 }, 30)), path.join(helpDir, "help-5-share.png"));
+await render(full(shotShared) + svgLayer(arrowToBox({ x: 600, y: 420 }, proCardShareBox)), path.join(helpDir, "help-5-share.png"));
 steps.push({ title: "Press Share", text: "On the “Saved” card. Your video goes to your own Google Drive and you get a link.", img: "help-5-share.png", alt: "The Saved card with Show, Share, Trim and GIF buttons" });
 // ⑥ Click Allow once — drawn (Google's real window can't be captured without a live sign-in)
 const allowHtml = `<div style="position:absolute;inset:0;background:#e9eaee"></div>
@@ -478,15 +505,17 @@ const allowHtml = `<div style="position:absolute;inset:0;background:#e9eaee"></d
 <div style="display:flex;gap:14px;align-items:center;padding:16px 0;border-top:1px solid #e8eaed;border-bottom:1px solid #e8eaed"><div style="width:36px;height:36px;border-radius:8px;background:#e8f0fe;display:grid;place-items:center">${svg("folder", 22, "#1a73e8")}</div><div>See, edit, create and delete only the specific Google Drive files you use with this app</div></div>
 <div style="position:absolute;right:48px;bottom:44px;display:flex;gap:12px"><span style="padding:10px 24px;border-radius:999px;color:#1a73e8;font-weight:600">Cancel</span><span id="allow" style="padding:10px 28px;border-radius:999px;background:#1a73e8;color:#fff;font-weight:600">Allow</span></div></div>
 <div style="position:absolute;left:24px;bottom:20px;padding:6px 12px;border-radius:999px;background:rgba(0,0,0,.55);color:#fff;font:600 13px var(--font)">Drawing — Google's window looks like this</div>`;
-await render(allowHtml + svgLayer(arrow({ x: 1150, y: 380 }, { x: 880, y: 648 }, 40)), path.join(helpDir, "help-6-allow.png"));
+await render(allowHtml, null);
+await render(allowHtml + svgLayer(arrowToBox({ x: 1150, y: 380 }, await comp.locator("#allow").boundingBox())), path.join(helpDir, "help-6-allow.png"));
 steps.push({ title: "Click Allow — only the first time", text: `Google asks once if ${esc(app.productName)} may put files in your Drive. It can only see the files it makes, nothing else. Anyone you give the link to can watch the video.`, img: "help-6-allow.png", alt: "A drawing of Google's permission window with an arrow at Allow" });
 // ⑦ Paste the link — a real page with the copied link pasted into a message box
 const chat = await render(`<div style="position:absolute;inset:0;background:#f4f5f8"></div><div style="position:absolute;left:240px;top:120px;width:800px;height:560px;background:#fff;border-radius:20px;box-shadow:0 12px 40px rgba(0,0,0,.12);padding:32px;font:18px/1.5 var(--font)">
 <div style="display:flex;gap:12px;align-items:center;margin-bottom:24px"><div style="width:44px;height:44px;border-radius:50%;background:#2f6fde;color:#fff;display:grid;place-items:center;font-weight:700">A</div><b>Alex</b></div>
 <div style="background:#eef1f7;border-radius:16px;padding:14px 18px;max-width:460px">Can you show me how the trip planner works?</div>
-<div style="margin:16px 0 0 auto;background:#d6363c;color:#fff;border-radius:16px;padding:14px 18px;max-width:520px;word-break:break-all">Here you go: https://drive.google.com/file/d/1aB2cD3eF4/view</div>
+<div id="pasted" style="margin:16px 0 0 auto;background:#d6363c;color:#fff;border-radius:16px;padding:14px 18px;max-width:520px;word-break:break-all">Here you go: https://drive.google.com/file/d/1aB2cD3eF4/view</div>
 <div style="position:absolute;left:32px;right:32px;bottom:32px;height:60px;border:2px solid #d6363c;border-radius:14px;display:flex;align-items:center;padding:0 18px;color:#62626d">Write a message…</div></div>`, null);
-await render(full(chat) + svgLayer(arrow({ x: 230, y: 330 }, { x: 760, y: 403 }, 40)), path.join(helpDir, "help-7-paste.png"));
+const pastedBox = await comp.locator("#pasted").boundingBox();
+await render(full(chat) + svgLayer(arrowToBox({ x: 230, y: 420 }, pastedBox)), path.join(helpDir, "help-7-paste.png"));
 steps.push({ title: "Paste the link anywhere", text: "The link is already copied. Paste it in an email, a chat or a document (<b>Ctrl+V</b>, or <b>⌘V</b> on a Mac). Anyone with the link can watch.", img: "help-7-paste.png", alt: "A chat message with the Drive link pasted in" });
 await writeFile(path.join(DOCS, "help.html"), help(steps));
 
@@ -502,7 +531,7 @@ function frame(title, sub, inner, { dark = false } = {}) {
 <div style="position:absolute;left:64px;top:166px;right:64px;font:500 22px/1.4 var(--font);color:${dark ? "#a1a1ab" : "#62626d"}">${esc(sub)}</div>${inner}`;
 }
 const shot = (buf, x, y, w, h) => `<div style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;border-radius:16px;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,.22)"><img src="${dataUrl(buf)}" style="width:100%;height:100%;display:block;object-fit:cover;object-position:top"></div>`;
-await render(frame("Draw a box. Press Record.", "Only what's in the box goes in the video. Or record your Screen, a Window or This page.", shot(shotDrag, 192, 218, 896, 560)), path.join(SHOTS, "1-draw-a-box.png"));
+await render(frame("Press Record. Draw a box.", "Only what's in the box goes in the video. Or record your Screen, a Window or This page.", shot(shotDrag, 192, 218, 896, 560)), path.join(SHOTS, "1-draw-a-box.png"));
 await render(
   frame(
     "One click. No account.",
@@ -524,7 +553,7 @@ await render(
 );
 await render(
   `<div style="position:absolute;inset:0;background:linear-gradient(160deg,#1d1d22,#121214)"></div><div style="position:absolute;left:72px;top:150px;display:flex;align-items:center;gap:18px;font:800 40px var(--font);color:#fff"><img src="${dataUrl(icon)}" style="width:80px;height:80px;border-radius:18px">${esc(app.productName)}</div>
-<div style="position:absolute;left:72px;top:270px;width:520px;font:800 48px/1.1 var(--font);letter-spacing:-.02em;color:#fff">Draw a box. Press Record.</div><div style="position:absolute;left:72px;top:400px;font:500 22px var(--font);color:#a1a1ab">No watermark · No account · Stays on your computer</div>
+<div style="position:absolute;left:72px;top:270px;width:520px;font:800 48px/1.1 var(--font);letter-spacing:-.02em;color:#fff">Press Record. Draw a box.</div><div style="position:absolute;left:72px;top:400px;font:500 22px var(--font);color:#a1a1ab">No watermark · No account · Saved on your computer</div>
 <div style="position:absolute;right:60px;top:60px;width:700px;height:440px;border-radius:16px;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,.5)"><img src="${dataUrl(shotDrag)}" style="width:100%;height:100%;object-fit:cover;object-position:top"></div>`,
   path.join(OUT, "marquee-1400x560.png"),
   { w: 1400, h: 560 },

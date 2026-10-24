@@ -1,6 +1,6 @@
 # Chrome Web Store submission checklist — Neat Record 1.0.0
 
-**Do not start until `store/RECORD-OWNER-STEPS.md` A (trader + VAT) is done.**
+**The draft item exists (created through the API). Owner steps: `store/RECORD-OWNER-STEPS.md`.**
 Dashboard: https://chrome.google.com/webstore/devconsole, signed in as
 **arcan2252@gmail.com**, publisher **Neat**. Paths are relative to
 `C:\Projects\Extension Factory\`. Copy long text from the files named, not from
@@ -18,9 +18,9 @@ review" until every tab is checked.
 
 | Step | Value |
 |---|---|
-| Upload | the draft created in owner steps D1 already exists: open it → **Package** → upload `dist\neat-record-1.0.0.zip` (only a `--release` build has this name) |
+| Upload | the draft item already exists: open it → **Package** → upload `dist\neat-record-1.0.0.zip` (only a `--release` build has this name) |
 | Check | Name `Neat Record — Screen Recorder, Draw a Box`; permissions activeTab, downloads, identity, offscreen, scripting, storage, tabCapture; **no** site access. Anything else: stop. |
-| Check | The item ID equals `extensionId` in `apps/record/app.config.js` (set from the store in owner steps D3). If not: stop. |
+| Check | The item ID equals `extensionId` in `apps/record/app.config.js` (set from the store after the draft upload). If not: stop. |
 
 ## 2. Store listing
 
@@ -37,7 +37,7 @@ review" until every tab is checked.
 | Marquee | `store/record/marquee-1400x560.png` |
 | Official URL | none |
 | Homepage URL | `https://neatextensions.com/record/help.html` |
-| Support URL | `https://github.com/neat-extensions/neat-extensions/issues` |
+| Support URL | `mailto:hello@neatextensions.com` (if the field refuses mailto, use `https://neatextensions.com/record/help.html`) |
 | Mature content | No |
 
 ## 3. Privacy tab
@@ -47,7 +47,7 @@ Copy each value from `store/record/listing.json`:
 - [ ] Single purpose → `singlePurpose`
 - [ ] One justification per permission → `permissionJustifications` (tabCapture, offscreen, activeTab, scripting, downloads, storage, identity). Host permissions: none.
 - [ ] Remote code → **No** (`remoteCode`)
-- [ ] Data usage: tick **nothing** collected (videos stay on the user's computer; Share sends a video to the user's own Drive, not to us). Tick the three certifications.
+- [ ] Data usage: tick **Website content** only (Share uploads the one chosen video to the user's own Drive; the developer never receives it). Leave every other type unticked. Tick the three certifications.
 - [ ] Privacy policy URL → `https://neatextensions.com/record/privacy.html`
 
 ## 4. Distribution

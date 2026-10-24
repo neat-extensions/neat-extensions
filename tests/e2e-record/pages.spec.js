@@ -4,7 +4,7 @@ import { test, expect, ROOT } from "./helpers.js";
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import app from "../../apps/record/app.config.js";
-import { SITE_URL } from "../../brand.config.js";
+import { SITE_URL, SUPPORT_EMAIL } from "../../brand.config.js";
 
 const DOCS = path.join(ROOT, "docs", "record");
 
@@ -15,6 +15,10 @@ for (const page of ["help.html", "pro.html", "privacy.html"]) {
     expect(refs.length).toBeGreaterThan(3);
     for (const u of refs) {
       expect(u, "no placeholder links").not.toMatch(/PAYMENT_LINK|REPLACE|OAUTH_CLIENT_ID|RULES_HOST/);
+      if (u.startsWith("mailto:")) {
+        expect(u).toBe(`mailto:${SUPPORT_EMAIL}`);
+        continue;
+      }
       if (/^https?:/.test(u)) {
         const res = await request.get(u, { maxRedirects: 5, timeout: 30_000, failOnStatusCode: false });
         // The published pages themselves are checked locally (they may not be deployed yet).
@@ -34,6 +38,10 @@ test("help: seven numbered steps, each with a real screenshot", () => {
   const html = readFileSync(path.join(DOCS, "help.html"), "utf8");
   const steps = [...html.matchAll(/<section class="step" id="step-(\d)">/g)].map((m) => Number(m[1]));
   expect(steps).toEqual([1, 2, 3, 4, 5, 6, 7]);
+  // The order the extension works in: Record first, then the box is drawn.
+  const titles = [...html.matchAll(/<section class="step"[^>]*>.*?<h2>([^<]+)<\/h2>/g)].map((m) => m[1]);
+  expect(titles[1]).toMatch(/Press Record/);
+  expect(titles[2]).toMatch(/Draw your box/);
   for (const m of html.matchAll(/<img class="shot" src="([^"]+)"/g)) {
     const buf = readFileSync(path.join(DOCS, m[1]));
     expect(buf.readUInt32BE(16), m[1]).toBe(1280); // PNG width
@@ -46,6 +54,10 @@ test("help: seven numbered steps, each with a real screenshot", () => {
   expect(html).toContain("Only what is inside the box goes in the video. Everything outside stays out.");
   expect(html).toContain("Sound is off in Window mode — Chrome can't record one window's sound. Use Screen or This page for sound.");
   expect(html).not.toMatch(/(^|[^A-Za-z])Tab([^A-Za-z]|$)/); // "This page" everywhere a reader can see
+});
+
+test("every page offers the support email", () => {
+  for (const page of ["help.html", "pro.html", "privacy.html"]) expect(readFileSync(path.join(DOCS, page), "utf8"), page).toContain(`mailto:${SUPPORT_EMAIL}`);
 });
 
 test("pro: the poster and a Buy button that opens the Stripe Payment Link", () => {

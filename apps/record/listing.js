@@ -11,7 +11,7 @@ export const title = `${BRAND} Record — Screen Recorder, Draw a Box`;
 // Chrome Web Store summary and manifest description: max 132 characters.
 export const summary = "Screen recorder: draw a box, or record your screen, a window or this page. No watermark, no account. Saved on your computer.";
 
-export const firstLine = "Draw a box. Press Record. Your video is in Downloads.";
+export const firstLine = "Press Record. Draw a box. Your video is in Downloads.";
 
 export const trustLines = ["No account.", "No watermark.", "Your video stays on your computer unless you press Share.", "Open source."];
 

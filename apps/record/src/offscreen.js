@@ -477,15 +477,16 @@ async function releaseFiles({ keep }) {
 
 /**
  * A raw recording left behind by a crash, an update or a closed browser: repair
- * it and hand it over for saving. Anything else left over is deleted.
+ * it and hand it over for saving. Anything else left over is deleted, including
+ * `skip` (a recording that was saved already and only kept for Pro jobs).
  */
-async function recover() {
+async function recover({ skip = [] } = {}) {
   if (rec) return null;
   const d = await dir();
   const raws = [];
   for await (const [name, h] of d.entries()) {
     const m = /^rec-(\d+)\.(mp4|webm)\.raw$/.exec(name);
-    if (m && h.kind === "file") raws.push({ name, ext: m[2], stamp: Number(m[1]) });
+    if (m && h.kind === "file" && !skip.includes(name)) raws.push({ name, ext: m[2], stamp: Number(m[1]) });
   }
   raws.sort((a, b) => b.stamp - a.stamp);
   for (const r of raws) {
@@ -527,8 +528,20 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
   if (!m || m.target !== "offscreen" || !handlers[m.type]) return;
   // Only the service worker talks to the recorder — never a page's content script.
   if (sender.id !== chrome.runtime.id || sender.tab || sender.url !== SW_URL) return;
+  // A job's answer also goes out as its own message: if the service worker was stopped during
+  // a long job (a slow Share upload), the reply is lost but this message wakes the new worker.
+  const finished = /^job:(trim|gif|share)$/.test(m.type)
+    ? (ok, value, e) => toSw({ type: "job:finished", id: m.id, ok, value, error: e && e.message, kind: e && e.kind, startMs: m.startMs, endMs: m.endMs })
+    : () => {};
   Promise.resolve()
     .then(() => handlers[m.type](m))
+    .then(
+      (v) => (finished(true, v), v),
+      (e) => {
+        finished(false, null, e);
+        throw e;
+      },
+    )
     .then(
       (v) => reply({ ok: true, value: v === undefined ? null : v }),
       (e) => reply({ ok: false, error: (e && e.message) || String(e), kind: e && e.kind, quiet: !!(e && e.quiet) }),

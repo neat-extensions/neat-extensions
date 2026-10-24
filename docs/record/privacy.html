@@ -57,17 +57,19 @@ img.shot{display:block;width:100%;height:auto;border-radius:16px;box-shadow:var(
 <h2>Your videos</h2>
 <p>Recording, encoding and saving happen on your computer. The finished video goes to your Downloads folder. While it is being made it is kept in the extension's private storage on your computer and deleted once it is saved. Pro keeps the last video there until you close the "Saved" card, start a new recording or restart Chrome, so Share, Trim and GIF can use it. If Chrome or the computer stops in the middle of a recording, what was recorded is saved to Downloads the next time Chrome starts, then deleted from the extension's storage.</p>
 <h2>Share to Google Drive (Pro, optional)</h2>
-<p>Only when you press <strong>Share</strong>, Chrome asks Google for permission for Neat Record to create files in your Google Drive. It uses Google's <code>drive.file</code> permission: the extension can see and change <em>only the files it created itself</em> — never anything else in your Drive. The video you chose is uploaded straight from your browser to your own Drive, into a folder called "Neat", and set so that anyone with the link can view it. The link is copied for you. We never receive the video, the link, your Google account or your email address. You can remove the permission at any time at <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>, and delete shared videos in Drive.</p>
+<p>Only when you press <strong>Share</strong>, Chrome asks Google for permission for Neat Record to create files in your Google Drive. It uses Google's <code>drive.file</code> permission: the extension can see and change <em>only the files it created itself</em> — never anything else in your Drive. The video you chose is uploaded straight from your browser to your own Drive, into a folder called "Neat", and set so that anyone with the link can view it. The link is copied for you. Sharing never sends us the video, the link, your Google account or your email address. You can remove the permission at any time at <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>, and delete shared videos in Drive.</p>
 <p>Neat Record's use of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
 <h2>What is remembered on your computer</h2>
 <p>Your choices (what to record, microphone, sound, quality), the id of the "Neat" folder in your Drive if you used Share, and the date the 10-minute note was last shown. If you buy Pro, your licence key is kept in Chrome's sync storage so your other computers signed in to Chrome unlock too. Uninstalling the extension deletes all of it.</p>
 <h2>Buying Pro</h2>
 <p>Payment is handled by Stripe on Stripe's own page; we never see your card. After you pay, our small licence service (running on Cloudflare) asks Stripe whether the payment went through, makes your key, and shows it to you.</p>
 <ul>
-<li><strong>What it keeps:</strong> the key, a random id for it (used only if you ask for a refund or a key is shared publicly), the purchase id and the date — so the same key can be shown again if you reload the page. This contains nothing about who you are.</li>
-<li><strong>Your email address</strong> (from Stripe) is used once, to email you the key through <a href="https://www.brevo.com/legal/privacypolicy/">Brevo</a>, our email sender, and is deleted from our licence service as soon as the email has gone out. Stripe keeps its own receipt records — see <a href="https://stripe.com/privacy">Stripe's privacy policy</a>.</li>
+<li><strong>What it keeps:</strong> the key, an id for it made from the purchase id (used only if you ask for a refund or a key is shared publicly), the purchase id and the date — so the same key can be shown again if you reload the page. This contains nothing about who you are.</li>
+<li><strong>Your email address</strong> (from Stripe) is used once, to email you the key through <a href="https://www.brevo.com/legal/privacypolicy/">Brevo</a>, our email sender, and is deleted from our licence service as soon as the email has gone out (or after five failed tries). Brevo keeps a log of sent emails for a short time under its own policy.</li>
+<li><strong>Stripe</strong> sells Pro for us (Stripe Managed Payments) and collects what it needs for the payment and for tax, such as your country. Stripe keeps its own receipt records — see <a href="https://stripe.com/privacy">Stripe's privacy policy</a>.</li>
+<li>Our licence service runs on Cloudflare, which processes your IP address to deliver the page.</li>
 <li>The key itself contains no personal data. It is stored in Chrome's sync storage so your other computers signed in to Chrome unlock too.</li>
-<li>To have your purchase record deleted, open an issue (below) with the last characters of your key.</li>
+<li>To have your purchase record deleted, email <a href="mailto:hello@neatextensions.com">hello@neatextensions.com</a> with the last 6 characters of your key.</li>
 </ul>
 <h2>Permissions</h2>
 <ul>
@@ -75,11 +77,12 @@ img.shot{display:block;width:100%;height:auto;border-radius:16px;box-shadow:var(
 <li><strong>Downloads</strong> — to save your video.</li>
 <li><strong>Act on the current tab when you click</strong> (activeTab, scripting) — to show the box, the recording bar, the webcam bubble and the "Saved" card on that tab. Never on its own.</li>
 <li><strong>Google sign-in</strong> (identity) — only for Share, only after you click it.</li>
+<li><strong>Microphone and camera</strong> (Chrome asks the first time) — your voice and your face go only into the video on your computer.</li>
 <li><strong>Storage</strong> — your choices, as above.</li>
 </ul>
 <h2>Children</h2><p>The extension collects no data from anyone, including children.</p>
 <h2>Changes</h2><p>If this policy changes, the new version is published here before the change takes effect.</p>
-<h2>Contact</h2><p>Open an issue at <a href="https://github.com/neat-extensions/neat-extensions/issues">github.com/neat-extensions/neat-extensions/issues</a>.</p>
+<h2>Contact</h2><p>Email <a href="mailto:hello@neatextensions.com">hello@neatextensions.com</a>, or open an issue at <a href="https://github.com/neat-extensions/neat-extensions/issues">github.com/neat-extensions/neat-extensions/issues</a>.</p>
 <p class="muted">Neat is not affiliated with or endorsed by Google.</p>
-<footer><a href="help.html">Help</a><a href="pro.html">Pro</a><a href="https://github.com/neat-extensions/neat-extensions">Source code</a></footer>
+<footer><a href="help.html">Help</a><a href="pro.html">Pro</a><a href="mailto:hello@neatextensions.com">hello@neatextensions.com</a><a href="https://github.com/neat-extensions/neat-extensions">Source code</a></footer>
 </main></body></html>

@@ -4,6 +4,7 @@
 //   node scripts/cws.mjs auth --code <code|url>     ...or exchange a code pasted from the browser's address bar
 //   node scripts/cws.mjs status  <itemId>
 //   node scripts/cws.mjs upload  <itemId> <zip>     uploads a new package to the existing item (does not publish)
+//   node scripts/cws.mjs create  <zip>              creates a NEW draft item (API v1.1 insert; does not publish)
 //   node scripts/cws.mjs publish <itemId> --publish submits for review; refuses without --publish
 //
 // Credentials live only in .secrets/ (git-ignored): cws-client.json {client_id, client_secret, publisher_id}
@@ -89,6 +90,17 @@ export async function upload(id, zip) {
   if (bytes[0] !== 0x50 || bytes[1] !== 0x4b) fail(`${zip} is not a zip file`);
   const r = await api("POST", `${API}/upload/v2/publishers/${c.publisher_id}/items/${id}:upload`, { body: bytes, headers: { "content-type": "application/zip" } });
   return r;
+}
+
+/**
+ * Creates a NEW store item from a zip, as an unpublished draft. API v2 has no "create", so this is
+ * the older v1.1 insert. The store assigns the item its id and key (a manifest "key" may or may not
+ * be honoured: compare the returned id). Never publishes.
+ */
+export async function create(zip) {
+  const bytes = await readFile(zip).catch(() => fail(`cannot read ${zip}`));
+  if (bytes[0] !== 0x50 || bytes[1] !== 0x4b) fail(`${zip} is not a zip file`);
+  return api("POST", "https://www.googleapis.com/upload/chromewebstore/v1.1/items?uploadType=media", { body: bytes, headers: { "content-type": "application/zip", "x-goog-api-version": "2" } });
 }
 
 /** Submits the uploaded draft for review. `confirmed` must be the literal --publish flag from the caller. */
@@ -183,9 +195,13 @@ if (process.argv[1] && path.resolve(process.argv[1]) === import.meta.filename) {
       if (!pos[1]) fail("usage: cws.mjs upload <itemId> <zip>");
       console.log(`uploading ${pos[1]} (${(await stat(pos[1])).size} bytes) — this does NOT publish`);
       show(await upload(pos[0], pos[1]));
+    } else if (cmd === "create") {
+      if (!pos[0]) fail("usage: cws.mjs create <zip>");
+      console.log(`creating a new draft item from ${pos[0]} (${(await stat(pos[0])).size} bytes) — this does NOT publish`);
+      show(await create(pos[0]));
     } else if (cmd === "publish") show(await publish(pos[0], { confirmed: rest.includes("--publish") }));
     else {
-      console.log("usage: cws.mjs auth [--code <code|url>] | status <itemId> | upload <itemId> <zip> | publish <itemId> --publish");
+      console.log("usage: cws.mjs auth [--code <code|url>] | status <itemId> | upload <itemId> <zip> | create <zip> | publish <itemId> --publish");
       process.exitCode = 2;
     }
   } catch (e) {

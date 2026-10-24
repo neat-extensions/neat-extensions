@@ -242,15 +242,17 @@ function main() {
     const show = state.unsaved
       ? h("button", { class: "chip primary", "data-act": "save-again" }, icon("folder", { size: 16 }), h("span", { text: "Save again" }))
       : h("button", { class: "chip", "data-act": "show", "aria-label": "Show in folder" }, icon("folder", { size: 16 }), h("span", { text: "Show" }));
+    // A recording saved without its index can't be shared, trimmed or made into a GIF.
+    const jobs = state.pro && !(last && last.unindexed);
     const actions =
       state.phase === "done"
         ? h(
             "div",
-            { class: `chips ${state.pro ? "" : "one"}` },
+            { class: `chips ${jobs ? "" : "one"}` },
             show,
-            state.pro ? pro("link", "Share", "share", "Upload to your Google Drive and copy a link anyone can watch") : null,
-            state.pro ? pro("scissors", "Trim", "trim", "Cut the start and end") : null,
-            state.pro ? pro("gif", "GIF", "gif", "Save the first 30 seconds as a GIF") : null,
+            jobs ? pro("link", "Share", "share", "Upload to your Google Drive and copy a link anyone can watch") : null,
+            jobs ? pro("scissors", "Trim", "trim", "Cut the start and end") : null,
+            jobs ? pro("gif", "GIF", "gif", "Save the first 30 seconds as a GIF") : null,
           )
         : null;
     const job = state.job ? h("div", { class: "job" }, jobBar(state.job.fraction), h("span", { text: state.job.kind === "share" ? "Uploading to your Google Drive…" : state.job.kind === "gif" ? "Making the GIF…" : "Trimming…" })) : null;

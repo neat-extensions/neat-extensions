@@ -1,8 +1,9 @@
 // The things that go wrong in real life: a crash mid-recording, Stop during
 // 3-2-1, closing the card while it saves, the page reloading under the box
 // overlay, pages Chrome won't let anyone record.
-import { test, expect, launch, worker, startServer, setSettings, tabIdOf, call, waitPhase, lastDownload, state, unlockPro, probe } from "./helpers.js";
-import { readFileSync } from "node:fs";
+import { test, expect, launch, worker, startServer, setSettings, tabIdOf, call, waitPhase, lastDownload, state, unlockPro, probe, RESULTS } from "./helpers.js";
+import { readFileSync, rmSync } from "node:fs";
+import path from "node:path";
 import { bufferSource } from "../../apps/record/src/lib/bytes.js";
 import { inspectMp4 } from "../../apps/record/src/lib/mp4.js";
 
@@ -157,3 +158,58 @@ test("only the recorder may report results; a page can't fake them", async () =>
     await ctx.close();
   }
 });
+
+test("Stop pressed after the recorder crashed saves what was recorded", async () => {
+  const { ctx, sw, tabId } = await setup();
+  try {
+    await call(sw, "start", { tabId });
+    await waitPhase(sw, "recording");
+    await new Promise((r) => setTimeout(r, 5_000));
+    await sw.evaluate(() => chrome.offscreen.closeDocument());
+    // The panel still says "Recording"; the natural thing to press is Stop.
+    await call(sw, "stop");
+    const st = await waitPhase(sw, ["done", "error"], 60_000);
+    expect(st.phase).toBe("done");
+    expect(st.last.filename).toMatch(/\(recovered\)\.mp4$/);
+    const info = await inspectMp4(bufferSource(readFileSync((await lastDownload(sw)).filename)));
+    expect(info.durationMs).toBeGreaterThan(2_000);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("a Pro recording kept for Share/Trim/GIF is not saved again after a browser restart", async () => {
+  const userDataDir = path.join(RESULTS, `restart-profile-${Date.now()}`);
+  const first = await setup({ userDataDir });
+  try {
+    await unlockPro(first.sw);
+    await call(first.sw, "start", { tabId: first.tabId });
+    await waitPhase(first.sw, "recording");
+    await new Promise((r) => setTimeout(r, 3_000));
+    await call(first.sw, "stop");
+    await waitPhase(first.sw, "done");
+    // Pro keeps the file for Share, Trim and GIF; the card is never closed.
+    expect(await opfsNames(first.sw)).toHaveLength(1);
+  } finally {
+    await first.ctx.close();
+  }
+  const ctx = await launch({ userDataDir });
+  try {
+    const sw = await worker(ctx);
+    await expect.poll(() => opfsNames(sw), { timeout: 20_000 }).toEqual([]); // the leftover is deleted, not recovered
+    const saved = await sw.evaluate(() => chrome.downloads.search({ state: "complete" }));
+    expect(saved).toHaveLength(1);
+    expect(saved[0].filename).not.toMatch(/recovered/);
+    expect((await state(sw)).phase).toBe("idle");
+  } finally {
+    await ctx.close();
+    rmSync(userDataDir, { recursive: true, force: true });
+  }
+});
+
+const opfsNames = (sw) =>
+  sw.evaluate(async () => {
+    const out = [];
+    for await (const name of (await navigator.storage.getDirectory()).keys()) out.push(name);
+    return out;
+  });

@@ -412,15 +412,19 @@ variables `RULES_URL` / `RULES_PUBLIC_KEY`, signing key, Pages hosting of the
 rules + landing page + privacy policy, `sourceUrl`, Chrome Web Store listing
 submitted (item `ojmhepcnbecbgcoehobgflnlfmebelkh`, publisher
 `99b0b31c-95fb-47dc-8c7c-3c2dce181945`), Chrome Web Store API credentials
-(Cloud project `neat-extensions`, `.secrets/cws-*.json`).
+(Cloud project `neat-extensions`, `.secrets/cws-*.json`). YouTube 1.0.0
+published 2026-10-24 (`EXTENSION_ID` set; the landing page links to it);
+1.0.1 (rules from neatextensions.com, github.io as the fallback) submitted the
+same day. Record: Stripe product + Payment Link, licence Worker on
+licence.neatextensions.com, Brevo email from keys@neatextensions.com.
 
-1. **After the store approves the item**, set `EXTENSION_ID` in
-   `scripts/store.mjs` to `ojmhepcnbecbgcoehobgflnlfmebelkh` (until then the
-   landing page shows a disabled "coming soon" button), then
-   `npm run store -- --no-shots` and `npm run rules:publish`. (The
-   in-extension review link uses the runtime id and needs no change.)
-2. **Weekly while the OAuth consent screen is in Testing**: refresh tokens
+1. **Weekly while the OAuth consent screen is in Testing**: refresh tokens
    expire after 7 days, so run `npm run cws -- auth` before a release, or
    move the consent screen to "In production" once.
+2. **Record**: the OAuth client id for the store item, the store listing and
+   privacy forms, the Cloudflare rate-limit rule — `store/RECORD-OWNER-STEPS.md`.
 3. **Brand**: if "Neat" changes, edit `brand.config.js`, then `npm run build`,
    `npm run icons`, `npm run store`.
+4. **No listing API**: the Chrome Web Store API (v2) only uploads, publishes
+   and reports status. Listing text, images, URLs and the privacy forms are
+   changed in the dashboard.

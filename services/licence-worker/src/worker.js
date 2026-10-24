@@ -4,17 +4,20 @@
 // signs a licence key (ECDSA P-256, offline-verifiable by the extension), shows
 // it on a clean page and emails it once. The same session always gets the same
 // key (stored in KV), so refreshing the page or a lost email never costs a sale.
-// Privacy: the KV record holds the key and its random subject id (for refunds),
-// and the buyer's email only until the key email has gone out.
+// Privacy: the KV record holds the key and its subject id (for refunds; derived
+// from the session id with a secret, so it says nothing about the buyer), and the
+// buyer's email only until the key email has gone out (or MAX_MAIL_TRIES failed).
 //
 // We never see card details: Stripe handles payment (cards, Apple Pay, Google Pay).
 // Bindings (wrangler.toml): KV LICENCES; vars PRODUCT, STRIPE_PRICE_ID, MAIL_FROM,
 // MAIL_FROM_NAME, SUPPORT_URL, PUBLIC_URL; secrets STRIPE_SECRET_KEY, LICENCE_PRIVATE_JWK,
 // BREVO_API_KEY (optional: without it the key is only shown, not emailed).
 import { encodeLicence, LICENCE_VERSION, toB64url } from "../../../packages/engine/src/licence.js";
-// Abuse guard: unknown or unpaid session ids are remembered briefly, so a script
-// trying random ids can't turn each request into a Stripe API call.
+// Abuse guard: unknown or unpaid session ids are remembered briefly in the edge cache
+// (not KV: the free plan's 1,000 KV writes a day must stay for real buyers), so a
+// script retrying an id can't turn each request into a Stripe API call.
 const NEGATIVE_TTL = 600;
+const MAX_MAIL_TRIES = 5;
 import { BRAND } from "../../../brand.config.js";
 
 const SESSION_RE = /^cs_(test|live)_[A-Za-z0-9]{10,240}$/;
@@ -50,9 +53,9 @@ async function success(id, env, ctx) {
   const kvKey = `session:${id}`;
   let rec = await env.LICENCES.get(kvKey, "json");
   if (!rec) {
-    const no = await env.LICENCES.get(`no:${id}`);
+    const no = await negative(id);
     if (no) return page(Number(no) || 404, no === "402" ? "Payment not finished yet" : "We can't find that payment", `<p>Refresh this page in a few minutes. If you paid, write to us: ${support(env)}.</p>`);
-    const remember = (status) => env.LICENCES.put(`no:${id}`, String(status), { expirationTtl: NEGATIVE_TTL });
+    const remember = (status) => negative(id, status);
     const res = await fetch(`${STRIPE}/checkout/sessions/${encodeURIComponent(id)}?expand[]=line_items`, { headers: { Authorization: `Bearer ${env.STRIPE_SECRET_KEY}` } });
     if (res.status === 404) {
       await remember(404);
@@ -68,21 +71,46 @@ async function success(id, env, ctx) {
     const items = (s.line_items && s.line_items.data) || [];
     if (!items.some((li) => li.price && li.price.id === env.STRIPE_PRICE_ID)) return page(400, "That payment isn't for this product", `<p>Write to us: ${support(env)}.</p>`);
     const email = (s.customer_details && s.customer_details.email) || "";
-    // The key's subject is random: it identifies the purchase (for a refund) without saying who bought it.
-    const sub = toB64url(crypto.getRandomValues(new Uint8Array(12)));
+    // The key's subject identifies the purchase (for a refund) without saying who bought it. It is
+    // derived from the session id, so two first visits racing past KV still give keys with one subject.
+    const sub = await subjectFor(env.LICENCE_PRIVATE_JWK, id);
     const key = await sign(env.LICENCE_PRIVATE_JWK, { product, sub });
-    rec = { key, sub, email, issued: new Date().toISOString().slice(0, 10), emailed: false };
-    await env.LICENCES.put(kvKey, JSON.stringify(rec));
+    rec = { key, sub, email, issued: new Date().toISOString().slice(0, 10), emailed: false, tries: 0 };
+    // If KV refuses the write (daily quota), the buyer still gets the key on this page.
+    await env.LICENCES.put(kvKey, JSON.stringify(rec)).catch((e) => console.error("licence store failed", e && e.message));
   }
   if (!rec.emailed && rec.email && env.BREVO_API_KEY) {
     const send = mail(env, rec).then(async (ok) => {
-      // Sent: the email address is no longer needed, so it isn't kept.
-      if (ok) await env.LICENCES.put(kvKey, JSON.stringify({ ...rec, email: "", emailed: true }));
+      const tries = (rec.tries || 0) + 1;
+      // Sent (or given up on): the email address is no longer needed, so it isn't kept.
+      const next = ok ? { ...rec, email: "", emailed: true } : tries >= MAX_MAIL_TRIES ? { ...rec, email: "", tries } : { ...rec, tries };
+      await env.LICENCES.put(kvKey, JSON.stringify(next)).catch(() => {});
     });
     if (ctx && ctx.waitUntil) ctx.waitUntil(send);
     else await send;
   }
   return keyPage(rec, env);
+}
+
+/** 16 url-safe characters: HMAC-SHA256(session id) under a key derived from the signing key. */
+async function subjectFor(privateJwkText, sessionId) {
+  const seed = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`neat-licence-sub:${JSON.parse(privateJwkText).d}`));
+  const key = await crypto.subtle.importKey("raw", seed, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const mac = new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(sessionId)));
+  return toB64url(mac.slice(0, 12));
+}
+
+/** Read (no status) or remember an unknown/unpaid session id in this location's edge cache. */
+async function negative(id, status) {
+  const cache = globalThis.caches && globalThis.caches.default;
+  if (!cache) return null;
+  const req = new Request(`https://licence-cache.invalid/no/${encodeURIComponent(id)}`);
+  if (status === undefined) {
+    const hit = await cache.match(req).catch(() => null);
+    return hit ? hit.text() : null;
+  }
+  await cache.put(req, new Response(String(status), { headers: { "Cache-Control": `max-age=${NEGATIVE_TTL}` } })).catch(() => {});
+  return null;
 }
 
 async function sign(privateJwkText, { product, sub }) {
@@ -108,7 +136,7 @@ export async function mail(env, rec) {
 /** k***@gmail.com — enough to recognise, not enough to harvest from a shared link. */
 const mask = (e) => e.replace(/^(.)[^@]*(@.*)$/, "$1***$2");
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-const support = (env) => (env.SUPPORT_URL ? `<a href="${esc(env.SUPPORT_URL)}">${esc(env.SUPPORT_URL.replace(/^https?:\/\//, ""))}</a>` : "the address on your receipt");
+const support = (env) => (env.SUPPORT_URL ? `<a href="${esc(env.SUPPORT_URL)}">${esc(env.SUPPORT_URL.replace(/^(https?:\/\/|mailto:)/, ""))}</a>` : "the address on your receipt");
 
 const CSS = `:root{color-scheme:light dark;--bg:#f6f6f8;--card:#fff;--text:#111114;--muted:#62626d;--accent:#d6363c;--border:rgba(17,17,20,.09)}
 @media (prefers-color-scheme:dark){:root{--bg:#111113;--card:#18181b;--text:#f3f3f5;--muted:#a1a1ab;--accent:#e0444a;--border:rgba(255,255,255,.09)}}
@@ -147,7 +175,7 @@ async function keyPage(rec, env) {
   const product = `${BRAND} Record`;
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Your ${esc(product)} Pro key</title><style>${CSS}</style></head><body><main>
 <h1>Thank you! Here's your Pro key</h1>
-<p>${(rec.email || rec.emailed) && env.BREVO_API_KEY ? `We've also emailed it${rec.email ? ` to <strong>${esc(mask(rec.email))}</strong>` : ""}.` : "Copy it now and keep it somewhere safe."}</p>
+<p>${rec.emailed ? "We've also emailed it to you." : rec.email && env.BREVO_API_KEY ? `We're emailing it to <strong>${esc(mask(rec.email))}</strong> too. Copy it now as well, just in case.` : "Copy it now and keep it somewhere safe."}</p>
 <div class="key" id="key">${esc(rec.key)}</div>
 <button id="copy" type="button">Copy key</button>
 <ol><li>Click the <strong>${esc(product)}</strong> icon in Chrome.</li><li>Press <strong>Pro</strong>.</li><li>Paste the key and press <strong>Unlock Pro</strong>.</li></ol>

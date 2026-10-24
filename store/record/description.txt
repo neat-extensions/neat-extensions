@@ -1,4 +1,4 @@
-Draw a box. Press Record. Your video is in Downloads.
+Press Record. Draw a box. Your video is in Downloads.
 
 • Draw a box: drag a box over part of a web page and only that goes in the video — pixel-sharp, even on high-DPI screens.
 • Or record your whole Screen, one Window (say, Excel), or This page — the web page you're on.

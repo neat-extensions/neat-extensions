@@ -245,7 +245,15 @@ async function stop(reason = "user") {
     return;
   }
   await setState({ phase: "saving" });
-  await toOffscreen("rec:stop", { reason }).catch(() => fail("save"));
+  await toOffscreen("rec:stop", { reason }).catch(async () => {
+    // The recorder is gone (it crashed): what it wrote is still on disk, so recover it rather than fail.
+    await closeOffscreen();
+    if (st.injected) toTab(st.tabId, { type: "teardown" });
+    await badge(null);
+    await setState(IDLE, { replace: true });
+    await recoverLeftovers();
+    if ((await getState()).phase === "idle") await fail("save");
+  });
 }
 
 async function cancelBox() {
@@ -270,9 +278,9 @@ async function onSaved(m) {
   }
   if (m.reason === "disk") note = SAY.disk;
   if (m.reason === "error") note = SAY.stopped;
-  if (m.reason === "ended" && !note) note = "Sharing ended, so the recording stopped.";
+  if (m.reason === "ended" && !note) note = "You stopped sharing, so the recording stopped and was saved.";
   if (!m.repaired) note = [note, "Saved without its index, so some players can't skip around in it."].filter(Boolean).join(" ");
-  const last = { opfsName: m.opfsName, ext: m.ext, mime: m.mime, size: m.size, durationMs: m.durationMs, filename, recordedMs: m.recordedMs, trims: [] };
+  const last = { opfsName: m.opfsName, ext: m.ext, mime: m.mime, size: m.size, durationMs: m.durationMs, filename, recordedMs: m.recordedMs, trims: [], unindexed: !m.repaired };
   await setState({ phase: "saving", last, note, toast: st.micBlocked ? "Recorded without the microphone (it was blocked)." : st.toast === SAY.micBlocked ? null : st.toast });
   await download(m.url, filename, "saved");
 }
@@ -287,7 +295,10 @@ async function download(url, filename, then) {
     const [d] = await chrome.downloads.search({ id });
     if (d && (d.state === "complete" || d.state === "interrupted")) await onDownload({ id, state: { current: d.state }, error: d.error ? { current: d.error } : undefined });
   } catch {
-    await fail("download", { pendingDownload: { id: null, then, url, filename } });
+    const pendingDownload = { id: null, then, url, filename };
+    // A trimmed copy or GIF that won't save leaves the original's card working; "Save again" retries.
+    if (then !== "saved") await setState({ phase: "done", job: null, unsaved: true, toast: SAY.download, pendingDownload });
+    else await fail("download", { pendingDownload });
   }
 }
 
@@ -315,6 +326,8 @@ chrome.downloads.onChanged.addListener((d) => serial(() => onDownload(d)));
 async function afterJob() {
   const st = await getState();
   const keep = st.pro && st.last ? st.last.opfsName : null;
+  // Remembered across restarts (session state is not), so recovery never saves an already-saved file again.
+  await chrome.storage.local.set({ keptFile: keep });
   if (await chrome.offscreen.hasDocument()) {
     await toOffscreen("job:release", { keep }).catch(() => {});
     await closeOffscreen();
@@ -330,27 +343,30 @@ async function clearDone(st) {
   }
 }
 
-/** After a crash, an update or a browser restart: a recording left on disk is repaired and saved. */
+/** After a crash, an update or a browser restart: a recording left on disk is repaired and saved.
+ *  The file kept for Pro jobs was saved already: it stays while its card is open, else it is deleted. */
 async function recoverLeftovers() {
   const st = await getState();
   if (!["idle", "done", "error"].includes(st.phase)) return;
+  const { keptFile = null } = await chrome.storage.local.get("keptFile");
+  const live = st.phase === "done" && st.last ? st.last.opfsName : null;
   let found = false;
   try {
     const d = await navigator.storage.getDirectory();
-    for await (const name of d.keys()) if (/\.raw$/.test(name)) found = true;
+    for await (const name of d.keys()) if (/\.raw$/.test(name) && name !== keptFile && name !== live) found = true;
   } catch {
     return;
   }
-  if (!found) return wipeFiles();
+  if (!found) return wipeFiles(live);
   await ensureOffscreen();
-  const r = await toOffscreen("rec:recover").catch(() => null);
+  const r = await toOffscreen("rec:recover", { skip: [keptFile, live].filter(Boolean) }).catch(() => null);
   if (!r) {
     await closeOffscreen();
     return wipeFiles();
   }
   const pro = await isPro();
   const filename = fileName(app.productName, new Date(r.stamp), r.ext, " (recovered)");
-  await setState({ phase: "saving", stamp: r.stamp, pro, injected: false, tabId: null, last: { opfsName: r.opfsName, ext: r.ext, mime: r.mime, size: r.size, durationMs: r.durationMs, filename, trims: [] }, note: "A recording that was cut off has been saved.", toast: null, job: null }, { replace: true });
+  await setState({ phase: "saving", stamp: r.stamp, pro, injected: false, tabId: null, last: { opfsName: r.opfsName, ext: r.ext, mime: r.mime, size: r.size, durationMs: r.durationMs, filename, trims: [], unindexed: !r.repaired }, note: "A recording that was cut off has been saved.", toast: null, job: null }, { replace: true });
   await download(r.url, filename, "saved");
 }
 
@@ -359,7 +375,8 @@ async function recoverLeftovers() {
 async function startJob(kind, m) {
   const st = await getState();
   if (st.phase !== "done" || !st.last) return { ok: false, error: "Nothing to work on yet." };
-  if (st.job) return { ok: false, error: "busy" };
+  if (st.last.unindexed) return { ok: false, error: "This recording was saved without its index, so it can't be shared, trimmed or made into a GIF." };
+  if (st.job && (await chrome.offscreen.hasDocument())) return { ok: false, error: "busy" };
   if (!(await isPro())) return { ok: false, error: "pro" };
   if (kind === "trim" && !(Number.isFinite(m.startMs) && Number.isFinite(m.endMs) && m.endMs > m.startMs)) return { ok: false, error: "range" };
   await setState({ job: { kind, fraction: 0 }, toast: null, ...(kind === "share" ? { link: null } : {}) });
@@ -367,33 +384,55 @@ async function startJob(kind, m) {
   return { ok: true };
 }
 
+// True while this worker is waiting for the recorder's answer to a job. If the worker was
+// stopped meanwhile (a slow Share upload), that answer is lost: the recorder's "job:finished"
+// message then wakes the new worker, which finishes the job instead.
+let jobInFlight = false;
+
 async function job(kind, m, st) {
+  jobInFlight = true;
   try {
     await ensureOffscreen();
-    if (kind === "trim") {
-      const r = await toOffscreen("job:trim", { last: st.last, startMs: m.startMs, endMs: m.endMs });
-      const filename = st.last.filename.replace(/( \(trimmed\))?\.(mp4|webm)$/, ` (trimmed).${st.last.ext}`);
-      await setState({ last: { ...st.last, trims: [...(st.last.trims || []), { startMs: m.startMs, endMs: m.endMs }], size: r.size, durationMs: r.durationMs, filename } });
-      await download(r.url, filename, "trim");
-    } else if (kind === "gif") {
-      const r = await toOffscreen("job:gif", { last: st.last });
-      await download(r.url, st.last.filename.replace(/\.(mp4|webm)$/, ".gif"), "gif");
-    } else if (kind === "share") {
+    const id = st.stamp + ":" + Date.now();
+    await setState({ job: { ...(await getState()).job, id } });
+    let r;
+    if (kind === "trim") r = await toOffscreen("job:trim", { id, last: st.last, startMs: m.startMs, endMs: m.endMs });
+    else if (kind === "gif") r = await toOffscreen("job:gif", { id, last: st.last });
+    else if (kind === "share") {
       if (!TEST_TOKEN && /^OAUTH_CLIENT_ID/.test(chrome.runtime.getManifest().oauth2?.client_id || "OAUTH_CLIENT_ID")) throw Object.assign(new Error(SAY.notSetUp), { kind: "setup" });
       const token = await getToken();
-      const r = await toOffscreen("job:share", { last: st.last, token, name: st.last.filename });
-      // Copied by the page the user pressed Share on (no clipboard permission needed); the panel and the card have Copy too.
-      const now = await getState();
-      const copied = now.injected ? (await toTab(now.tabId, { type: "copy", text: r.link })) === true : false;
-      const toast = r.private ? "Uploaded, but your account doesn't allow public links: the link works only for you." : copied ? "Link copied — anyone with the link can watch" : "Link ready — press Copy. Anyone with the link can watch.";
-      await setState({ job: null, link: r.link, toast });
-      await afterJob();
+      r = await toOffscreen("job:share", { id, last: st.last, token, name: st.last.filename });
     }
+    await finishJob(kind, m, st, r);
   } catch (e) {
-    const plain = ["offline", "auth", "quota", "busy", "forbidden", "setup"].includes(e.kind);
-    await setState({ job: null, toast: plain ? e.message : SAY.job });
+    await jobFailed(e);
+  } finally {
+    jobInFlight = false;
+  }
+}
+
+async function finishJob(kind, m, st, r) {
+  await setState({ job: { ...(await getState()).job, answered: true } });
+  if (kind === "trim") {
+    const filename = st.last.filename.replace(/( (trimmed))?.(mp4|webm)$/, ` (trimmed).${st.last.ext}`);
+    await setState({ last: { ...st.last, trims: [...(st.last.trims || []), { startMs: m.startMs, endMs: m.endMs }], size: r.size, durationMs: r.durationMs, filename } });
+    await download(r.url, filename, "trim");
+  } else if (kind === "gif") {
+    await download(r.url, st.last.filename.replace(/.(mp4|webm)$/, ".gif"), "gif");
+  } else if (kind === "share") {
+    // Copied by the page the user pressed Share on (no clipboard permission needed); the panel and the card have Copy too.
+    const now = await getState();
+    const copied = now.injected ? (await toTab(now.tabId, { type: "copy", text: r.link })) === true : false;
+    const toast = r.private ? "Uploaded, but your account doesn't allow public links: the link works only for you." : copied ? "Link copied — anyone with the link can watch" : "Link ready — press Copy. Anyone with the link can watch.";
+    await setState({ job: null, link: r.link, toast });
     await afterJob();
   }
+}
+
+async function jobFailed(e) {
+  const plain = ["offline", "auth", "quota", "busy", "forbidden", "setup"].includes(e.kind);
+  await setState({ job: null, toast: plain ? e.message : SAY.job });
+  await afterJob();
 }
 
 async function getToken() {
@@ -447,7 +486,8 @@ const handlers = {
   },
   dismiss: async () => {
     const st = await getState();
-    if (st.phase === "saving" || st.job) return { ok: false, error: "busy" }; // finish first; the card just stays
+    // Finish first; the card just stays. A job with no recorder behind it is over, though.
+    if (st.phase === "saving" || (st.job && (await chrome.offscreen.hasDocument()))) return { ok: false, error: "busy" };
     await clearDone(st);
     await badge(null);
     await setState(IDLE, { replace: true });
@@ -502,14 +542,21 @@ const handlers = {
   },
   "job:progress": async (m) => {
     const st = await getState();
-    if (st.job && st.job.kind === m.job && Number.isFinite(m.fraction)) await setState({ job: { kind: m.job, fraction: Math.max(0, Math.min(1, m.fraction)) } });
+    if (st.job && st.job.kind === m.job && Number.isFinite(m.fraction)) await setState({ job: { ...st.job, fraction: Math.max(0, Math.min(1, m.fraction)) } });
+  },
+  // The recorder's answer to a job, sent as well as the reply: only used when the reply was lost.
+  "job:finished": async (m) => {
+    const st = await getState();
+    if (jobInFlight || !st.job || st.job.answered || st.job.id !== m.id || st.phase !== "done" || !st.last) return;
+    if (!m.ok) return jobFailed(Object.assign(new Error(m.error || ""), { kind: m.kind }));
+    await finishJob(st.job.kind, { startMs: m.startMs, endMs: m.endMs }, st, m.value);
   },
 };
 
 // Who may send what. Pages' content scripts run next to untrusted page code, so they get
 // only the buttons a user can press; the recorder's messages must come from the recorder.
 const FROM_PAGE = new Set(["box:chosen", "box:cancel", "page:gone", "viewport", "stop", "pause", "resume", "dismiss", "show", "save-again", "open-pro", "trim", "gif", "share", "state"]);
-const FROM_RECORDER = new Set(["drive:token", "drive:folder", "drive:drop-token", "rec:stopping", "rec:saved", "rec:error", "job:progress"]);
+const FROM_RECORDER = new Set(["drive:token", "drive:folder", "drive:drop-token", "rec:stopping", "rec:saved", "rec:error", "job:progress", "job:finished"]);
 // Answered straight away, outside the queue: they never change the recording flow.
 const UNQUEUED = new Set(["state", "drive:token", "drive:drop-token", "drive:folder", "job:progress"]);
 
@@ -536,9 +583,14 @@ chrome.commands.onCommand.addListener((cmd, tab) => {
   if (cmd !== app.command.id) return;
   serial(async () => {
     const st = await getState();
-    if (st.phase === "recording") return stop("user");
+    // Stop also cancels a box being drawn, the 3-2-1 or the screen picker.
+    if (["recording", "choosing", "countdown", "starting"].includes(st.phase)) return stop("user");
     if (!(await isPro())) return chrome.action.openPopup().catch(() => {});
-    if (["idle", "done", "error"].includes(st.phase)) return start({ tabId: tab && tab.id });
+    if (["idle", "done", "error"].includes(st.phase)) {
+      const r = await start({ tabId: tab && tab.id });
+      // It can't start here (a chrome:// page, say): open the panel rather than do nothing.
+      if (r && !r.ok) chrome.action.openPopup().catch(() => {});
+    }
   });
 });
 

@@ -3,7 +3,7 @@
 // chrome.storage.sync so the user's other computers signed in to Chrome unlock too.
 import app from "../app.config.js";
 import { licencePublicKey } from "./lib/format.js";
-import { BRAND } from "../../../brand.config.js";
+import { BRAND, SUPPORT_EMAIL } from "../../../brand.config.js";
 import { verifyLicence, cleanLicenceInput } from "../../../packages/engine/src/licence.js";
 import { icon, h } from "./lib/ui.js";
 import { FREE, PRO, TERMS } from "./lib/compare.js";
@@ -15,8 +15,8 @@ const REASONS = {
   format: "That doesn't look like a whole key. Copy all of it and paste again.",
   signature: "That key isn't valid. Check you copied all of it.",
   product: `That key is for a different ${BRAND} product.`,
-  version: "That key is from an older format. Open an issue at github.com/neat-extensions/neat-extensions and we'll swap it.",
-  revoked: "That key has been switched off (refunded or shared publicly). If that's a mistake, open an issue at github.com/neat-extensions/neat-extensions.",
+  version: `That key is from an older format. Email ${SUPPORT_EMAIL} and we'll swap it.`,
+  revoked: `That key has been switched off (refunded or shared publicly). If that's a mistake, email ${SUPPORT_EMAIL}.`,
 };
 const placeholderBuy = /PAYMENT_LINK/.test(app.buyUrl);
 
