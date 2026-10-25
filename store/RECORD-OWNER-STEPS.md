@@ -13,7 +13,8 @@ so it opens in the **arcan2252@gmail.com** Chrome profile.
 
 **Done (2026-10-25):** Part 1 (Chrome client `60013913850-g4iv…`), Part 1b (Edge/Brave web client
 `60013913850-48am…`), the licence Worker fix, your real-Chrome checks, and **Neat Record 1.0.1**
-(`dist\neat-record-1.0.1.zip`) uploaded to the draft after passing both verifications.
+(`dist\neat-record-1.0.1.zip`), then **Neat Record 1.0.2** (`dist\neat-record-1.0.2.zip`, 2026-10-25)
+uploaded to the draft, each after passing both verifications.
 
 **Left for you:** Part 2 (the store screens). Then press **Submit for review** on the item, or tell me to submit it.
 
