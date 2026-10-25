@@ -120,7 +120,7 @@ ${movedHead("record/privacy.html")}<style>${pageCss}</style></head>
 <p class="muted">Last updated: ${today}</p>
 <p><strong>The extension collects nothing about you.</strong> No account, no analytics, no advertising, no tracking, and no server of ours ever sees your videos. The only personal data we handle is your email address if you buy Pro — see "Buying Pro" below.</p>
 <h2>Your videos</h2>
-<p>Recording, encoding and saving happen on your computer. The finished video goes to your Downloads folder. While it is being made it is kept in the extension's private storage on your computer and deleted once it is saved. Pro keeps the last video there until you close the "Saved" card, start a new recording or restart Chrome, so Share, Trim and GIF can use it. If Chrome or the computer stops in the middle of a recording, what was recorded is saved to Downloads the next time Chrome starts, then deleted from the extension's storage.</p>
+<p>Recording, encoding and saving happen on your computer. The finished video goes to your Downloads folder. While it is being made it is kept in the extension's private storage on your computer and deleted once it is saved. Pro keeps the last video there until you start a new recording or restart your browser, so Share, Trim and GIF can still use it (the panel's "Last recording"). If the browser or the computer stops in the middle of a recording, what was recorded is saved to Downloads the next time the browser starts, then deleted from the extension's storage.</p>
 <h2>Share to Google Drive (Pro, optional)</h2>
 <p>Only when you press <strong>Share</strong>, Chrome asks Google for permission for ${esc(app.productName)} to create files in your Google Drive. It uses Google's <code>drive.file</code> permission: the extension can see and change <em>only the files it created itself</em> — never anything else in your Drive. The video you chose is uploaded straight from your browser to your own Drive, into a folder called "${esc(BRAND)}", and set so that anyone with the link can view it. The link is copied for you. Sharing never sends us the video, the link, your Google account or your email address. You can remove the permission at any time at <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>, and delete shared videos in Drive.</p>
 <p>${esc(app.productName)}'s use of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
@@ -214,7 +214,7 @@ const WAYS = [
   { icon: "box", name: "Draw a box", text: "You draw a box on the page. Only what is inside the box goes in the video. Everything outside stays out." },
   { icon: "screen", name: "Screen", text: "Everything on your monitor goes in the video — all your windows, the taskbar, everything you see." },
   { icon: "window", name: "Window", text: "Pick one program, say Excel. Only Excel goes in the video. If you open something on top of it, that doesn't go in.", note: "Sound is off in Window mode — your browser can't record one window's sound. Use Screen or This page for sound." },
-  { icon: "tab", name: "This page", text: "Only the web page you are on right now goes in the video. If you click to another page, the video keeps filming the first one — nothing else gets in by accident." },
+  { icon: "tab", name: "This page", text: "Only the web page you are on right now goes in the video. If you switch to another tab, the video keeps filming this one — nothing else gets in by accident." },
 ];
 const help = (imgs) => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -255,6 +255,7 @@ ${PRESETS.map((p) => `<div class="level"><b>${esc(p.label)}${p.pro ? '<span clas
 <ul>
 <li><b>“This page can't be recorded”</b> — your browser doesn't let anyone record its own pages, like its start page. Open a normal website, or pick Screen or Window.</li>
 <li><b>No sound in Window mode</b> — your browser can't record one window's sound. Use Screen or This page for sound.</li>
+<li><b>No computer sound with Screen</b> — in the window that asks what to share, turn on <b>Share system audio</b> (Edge: <b>Share with system audio</b>) before you press Share.</li>
 <li><b>The camera circle says “Camera blocked”</b> — some websites don't allow cameras. Turn Camera off for that site, or allow the camera in the address bar.</li>
 <li><b>Your browser asked where to save, and you closed that window</b> — press <b>Save again</b>.</li>
 <li><b>Alt+Shift+R does nothing</b> (Pro) — your browser didn't set the shortcut: open <b>chrome://extensions/shortcuts</b> (in Edge, <b>edge://extensions/shortcuts</b>) and type Alt+Shift+R into the box next to ${esc(app.productName)}.</li>
@@ -490,13 +491,13 @@ await render(withToolbar(popupIdle.buf, "") + svgLayer(arrow({ x: 380, y: 520 },
 steps.push({ title: "Pick a way. Press Record.", text: "Pick <b>Draw a box</b>, <b>Screen</b>, <b>Window</b> or <b>This page</b>. Then press the big red button. The panel closes.", img: "help-2-record.png", alt: "The panel with an arrow pointing at the big round Record button" });
 // ③ Draw the box (Screen and Window: Chrome asks what to share instead)
 await render(full(shotDrag) + svgLayer(arrow({ x: 1090, y: 700 }, { x: 800, y: 590 }, 28)), path.join(helpDir, "help-3-draw.png"));
-steps.push({ title: "Draw your box", text: "Press and hold on the page. Move to make a box. Let go. Recording starts now. Changed your mind? Press <b>Esc</b>.<br>Picked Screen or Window? Your browser asks what to share. Click it, then <b>Share</b>.", img: "help-3-draw.png", alt: "A box being dragged over part of a web page; the rest is darker" });
+steps.push({ title: "Draw your box", text: "Press and hold on the page. Move to make a box. Let go. Recording starts now. Changed your mind? Press <b>Esc</b>.<br>Picked Screen or Window? Your browser asks what to share. Click it, then <b>Share</b>.<br>Want the computer's sound with Screen? First turn on <b>Share system audio</b> in that window (in Edge it says <b>Share with system audio</b>).", img: "help-3-draw.png", alt: "A box being dragged over part of a web page; the rest is darker" });
 // ④ Press Stop
 await render(full(shotRec) + svgLayer(arrow({ x: 1050, y: 760 }, { x: stopBox.x + stopBox.width / 2, y: stopBox.y + stopBox.height / 2 }, 34)), path.join(helpDir, "help-4-stop.png"));
-steps.push({ title: "Press Stop. Your video is in Downloads.", text: `Press <b>Stop</b> on the little bar. Your video is in your <b>Downloads</b> folder.<br>Recording the Screen, a Window or This page? There is no bar. Click the ${esc(app.productName)} icon and press <b>Stop</b>.`, img: "help-4-stop.png", alt: "The small recording bar with a timer and a Stop button, next to the box" });
+steps.push({ title: "Press Stop. Your video is in Downloads.", text: `Press <b>Stop</b> on the little bar. Your video is in your <b>Downloads</b> folder.<br>Recording This page, the Screen or a Window? There is no bar. Click the ${esc(app.productName)} icon, then press <b>Stop</b>.`, img: "help-4-stop.png", alt: "The small recording bar with a timer and a Stop button, next to the box" });
 // ⑤ Press Share
 await render(full(shotShared) + svgLayer(arrowToBox({ x: 600, y: 420 }, proCardShareBox)), path.join(helpDir, "help-5-share.png"));
-steps.push({ title: "Press Share", text: "On the “Saved” card. Your video goes to your own Google Drive and you get a link.", img: "help-5-share.png", alt: "The Saved card with Show, Share, Trim and GIF buttons" });
+steps.push({ title: "Press Share", text: `On the “Saved” card. Your video goes to your own Google Drive and you get a link.<br>Closed the card? Click the ${esc(app.productName)} icon, then <b>Last recording</b>.`, img: "help-5-share.png", alt: "The Saved card with Show, Share, Trim and GIF buttons" });
 // ⑥ Click Allow once — drawn (Google's real window can't be captured without a live sign-in)
 const allowHtml = `<div style="position:absolute;inset:0;background:#e9eaee"></div>
 <div style="position:absolute;left:340px;top:90px;width:600px;height:600px;background:#fff;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.25);padding:44px 48px;font:18px/1.5 var(--font);color:#1f1f1f">
@@ -508,16 +509,24 @@ const allowHtml = `<div style="position:absolute;inset:0;background:#e9eaee"></d
 <div style="position:absolute;left:24px;bottom:20px;padding:6px 12px;border-radius:999px;background:rgba(0,0,0,.55);color:#fff;font:600 13px var(--font)">Drawing — Google's window looks like this</div>`;
 await render(allowHtml, null);
 await render(allowHtml + svgLayer(arrowToBox({ x: 1150, y: 380 }, await comp.locator("#allow").boundingBox())), path.join(helpDir, "help-6-allow.png"));
-steps.push({ title: "Click Allow — only the first time", text: `Google asks once if ${esc(app.productName)} may put files in your Drive. It can only see the files it makes, nothing else. Anyone you give the link to can watch the video.`, img: "help-6-allow.png", alt: "A drawing of Google's permission window with an arrow at Allow" });
-// ⑦ Paste the link — a real page with the copied link pasted into a message box
+steps.push({ title: "Click Allow — only the first time", text: `Google may ask you to sign in first. Then it asks once if ${esc(app.productName)} may put files in your Drive. It can only see the files it makes, nothing else. Anyone you give the link to can watch the video.`, img: "help-6-allow.png", alt: "A drawing of Google's permission window with an arrow at Allow" });
+// ⑦ Press Copy — the real panel, captured by the e2e run (tests/e2e-record/pro.spec.js "Last recording")
+const copyShot = path.join(ROOT, "test-results", "help-shots", "panel-link-ready.png");
+const copyAt = JSON.parse(await readFile(copyShot.replace(/\.png$/, ".json"), "utf8").catch(() => {
+  throw new Error(`${path.relative(ROOT, copyShot)} is missing: run the Record e2e first (E2E_CHANNEL=msedge npx playwright test --project=record-e2e)`);
+})).copy;
+const copyBox = { x: POP.x + copyAt.x, y: POP.y + copyAt.y, width: copyAt.width, height: copyAt.height };
+await render(withToolbar(await readFile(copyShot), "") + svgLayer(arrowToBox({ x: 300, y: 560 }, copyBox)), path.join(helpDir, "help-7-copy.png"));
+steps.push({ title: "Press Copy", text: "It says <b>Link ready</b>. Press <b>Copy</b>. Now the link is copied. (Often it is copied for you already.)", img: "help-7-copy.png", alt: "The panel's Saved card saying Link ready, with an arrow at the Copy button" });
+// ⑧ Paste the link — a real page with the copied link pasted into a message box
 const chat = await render(`<div style="position:absolute;inset:0;background:#f4f5f8"></div><div style="position:absolute;left:240px;top:120px;width:800px;height:560px;background:#fff;border-radius:20px;box-shadow:0 12px 40px rgba(0,0,0,.12);padding:32px;font:18px/1.5 var(--font)">
 <div style="display:flex;gap:12px;align-items:center;margin-bottom:24px"><div style="width:44px;height:44px;border-radius:50%;background:#2f6fde;color:#fff;display:grid;place-items:center;font-weight:700">A</div><b>Alex</b></div>
 <div style="background:#eef1f7;border-radius:16px;padding:14px 18px;max-width:460px">Can you show me how the trip planner works?</div>
 <div id="pasted" style="margin:16px 0 0 auto;background:#d6363c;color:#fff;border-radius:16px;padding:14px 18px;max-width:520px;word-break:break-all">Here you go: https://drive.google.com/file/d/1aB2cD3eF4/view</div>
 <div style="position:absolute;left:32px;right:32px;bottom:32px;height:60px;border:2px solid #d6363c;border-radius:14px;display:flex;align-items:center;padding:0 18px;color:#62626d">Write a message…</div></div>`, null);
 const pastedBox = await comp.locator("#pasted").boundingBox();
-await render(full(chat) + svgLayer(arrowToBox({ x: 230, y: 420 }, pastedBox)), path.join(helpDir, "help-7-paste.png"));
-steps.push({ title: "Paste the link anywhere", text: "The link is already copied. Paste it in an email, a chat or a document (<b>Ctrl+V</b>, or <b>⌘V</b> on a Mac). Anyone with the link can watch.", img: "help-7-paste.png", alt: "A chat message with the Drive link pasted in" });
+await render(full(chat) + svgLayer(arrowToBox({ x: 230, y: 420 }, pastedBox)), path.join(helpDir, "help-8-paste.png"));
+steps.push({ title: "Paste the link anywhere", text: "Paste it in an email, a chat or a document (<b>Ctrl+V</b>, or <b>⌘V</b> on a Mac). Anyone with the link can watch.", img: "help-8-paste.png", alt: "A chat message with the Drive link pasted in" });
 await writeFile(path.join(DOCS, "help.html"), help(steps));
 
 // ---------------------------------------------------------------- poster → docs + store screenshot 4

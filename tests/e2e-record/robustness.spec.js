@@ -1,7 +1,7 @@
 // The things that go wrong in real life: a crash mid-recording, Stop during
 // 3-2-1, closing the card while it saves, the page reloading under the box
 // overlay, pages Chrome won't let anyone record.
-import { test, expect, launch, worker, startServer, setSettings, tabIdOf, call, waitPhase, lastDownload, state, unlockPro, probe, RESULTS } from "./helpers.js";
+import { test, expect, launch, worker, startServer, setSettings, tabIdOf, call, waitPhase, lastDownload, state, unlockPro, probe, RESULTS, CHANNEL } from "./helpers.js";
 import { readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 import { bufferSource } from "../../apps/record/src/lib/bytes.js";
@@ -97,8 +97,10 @@ test("the page reloading under the box overlay doesn't leave the panel stuck", a
 test("a page nobody may record says so at once, in the panel", async () => {
   const { ctx, sw, page } = await setup();
   try {
-    await page.goto("chrome://version");
-    const tabId = await sw.evaluate(async () => (await chrome.tabs.query({})).find((t) => !t.url || t.url.startsWith("chrome://")).id);
+    // The browser's own page under its own name (Edge loads chrome:// pages by redirecting, which can crash the tab).
+    const internal = CHANNEL === "msedge" ? "edge://version" : "chrome://version";
+    await page.goto(internal);
+    const tabId = await sw.evaluate(async (scheme) => (await chrome.tabs.query({})).find((t) => !t.url || t.url.startsWith(scheme)).id, internal.split("//")[0] + "//");
     // (Tab mode is refused by Chrome itself on these pages; the e2e build's allow-list flag lifts that check, so only box is tested here.)
     for (const mode of ["box"]) {
       await setSettings(sw, { mode });
@@ -250,6 +252,54 @@ test("closing the recorded tab saves the recording and says just that", async ()
     expect(st.note).toBe("Recording saved.");
     const info = await inspectMp4(bufferSource(readFileSync((await lastDownload(sw)).filename)));
     expect(info.durationMs).toBeGreaterThan(1_500);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("after the extension is reloaded, a Saved card left by the old copy goes away when touched, and never stacks", async () => {
+  const { ctx, sw, page, tabId } = await setup();
+  try {
+    await call(sw, "start", { tabId });
+    await waitPhase(sw, "recording");
+    await new Promise((r) => setTimeout(r, 2_000));
+    await call(sw, "stop");
+    await waitPhase(sw, "done");
+    const ui = page.locator("neat-record-ui");
+    await expect(ui.locator(".card")).toBeVisible();
+    await sw.evaluate(() => chrome.runtime.reload());
+    const sw2 = await ctx.waitForEvent("serviceworker", { timeout: 20_000 });
+    // The old card can't reach the new copy: pressing it removes it instead of doing nothing.
+    await ui.locator('[data-act="show"]').click();
+    await expect(ui).toHaveCount(0);
+    // A new recording on the same page: one page UI, not two stacked.
+    await setSettings(sw2, { mode: "tab", sound: false, mic: false });
+    const t2 = await tabIdOf(sw2, server.base);
+    await call(sw2, "start", { tabId: t2 });
+    await waitPhase(sw2, "recording");
+    await call(sw2, "stop");
+    await waitPhase(sw2, "done");
+    await expect(page.locator("neat-record-ui")).toHaveCount(1);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("This page on the browser's own page: refused with a clear message, no picture-less file saved", async () => {
+  const { ctx, sw, page } = await setup();
+  try {
+    const internal = CHANNEL === "msedge" ? "edge://version" : "chrome://version";
+    await page.goto(internal);
+    const tabId = await sw.evaluate(async (scheme) => (await chrome.tabs.query({})).find((t) => !t.url || t.url.startsWith(scheme)).id, internal.split("//")[0] + "//");
+    const before = (await sw.evaluate(() => chrome.downloads.search({}))).length;
+    await setSettings(sw, { mode: "tab", sound: true, mic: false });
+    const r = await call(sw, "start", { tabId });
+    // Either refused at once, or the capture starts but no picture ever comes: the same message.
+    const st = r.ok ? await waitPhase(sw, ["error", "recording"], 20_000) : null;
+    expect(st ? st.phase : "refused").not.toBe("recording");
+    expect(r.ok ? st.toast : r.error).toBe("This page can't be recorded. Open a normal web page, or pick Window or Screen.");
+    expect((await sw.evaluate(() => chrome.downloads.search({}))).length).toBe(before);
+    expect(await sw.evaluate(() => chrome.offscreen.hasDocument())).toBe(false);
   } finally {
     await ctx.close();
   }

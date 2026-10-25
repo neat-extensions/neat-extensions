@@ -1,5 +1,5 @@
 // The public help and Pro pages: every link and image resolves; nothing points
-// at a placeholder; the help page has the seven steps with real images.
+// at a placeholder; the help page has the eight steps with real images.
 import { test, expect, ROOT } from "./helpers.js";
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -34,10 +34,10 @@ for (const page of ["help.html", "pro.html", "privacy.html"]) {
   });
 }
 
-test("help: seven numbered steps, each with a real screenshot", () => {
+test("help: eight numbered steps, each with a real screenshot", () => {
   const html = readFileSync(path.join(DOCS, "help.html"), "utf8");
   const steps = [...html.matchAll(/<section class="step" id="step-(\d)">/g)].map((m) => Number(m[1]));
-  expect(steps).toEqual([1, 2, 3, 4, 5, 6, 7]);
+  expect(steps).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
   // The order the extension works in: Record first, then the box is drawn.
   const titles = [...html.matchAll(/<section class="step"[^>]*>.*?<h2>([^<]+)<\/h2>/g)].map((m) => m[1]);
   expect(titles[1]).toMatch(/Press Record/);
@@ -57,6 +57,8 @@ test("help: seven numbered steps, each with a real screenshot", () => {
   // Works in Edge too: "your browser", not "Chrome", in the steps; and how to set the shortcut if a browser left it unset.
   expect(html).not.toMatch(/top right of Chrome|Chrome asks|Chrome can't|Chrome doesn't/);
   expect(html).toContain("edge://extensions/shortcuts");
+  expect(html).toContain("Share system audio");
+  expect(html).not.toContain("That stops it"); // the icon opens the panel; Stop is pressed there
 });
 
 test("every page offers the support email", () => {

@@ -73,6 +73,8 @@ button { cursor: pointer; }
 .record-label { font-size: 13px; font-weight: 650; }
 .message { margin: 0; min-height: 34px; font-size: 12px; color: var(--muted); text-align: center; }
 .message.error { color: var(--accent); font-weight: 600; }
+.last { margin: 3px 0; height: 28px; padding: 0 12px; border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--text); font: 600 12px/1 var(--font); cursor: pointer; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.last:hover { background: var(--surface-2, rgba(0,0,0,.04)); }
 
 /* Recording */
 #live { justify-items: center; align-content: center; gap: 12px; }

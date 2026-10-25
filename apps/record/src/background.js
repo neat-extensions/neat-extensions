@@ -6,14 +6,14 @@ import app from "../app.config.js";
 import { verifyLicence } from "../../../packages/engine/src/licence.js";
 import { captureSize, MIN_BOX } from "./lib/crop.js";
 import { presetById } from "./lib/presets.js";
-import { normaliseSettings, fileName, licencePublicKey } from "./lib/format.js";
+import { normaliseSettings, fileName, licencePublicKey, isBrowserPage } from "./lib/format.js";
 import { shouldShowLimitNote, dayKey } from "./lib/limiter.js";
 
 const LICENCE_KEY = licencePublicKey(app);
 const TEST_TOKEN = process.env.RECORD_TEST_TOKEN || "";
 const AUTH_URL = process.env.RECORD_AUTH_URL || "https://accounts.google.com/o/oauth2/v2/auth";
 const WEB_CLIENT_ID = process.env.RECORD_WEB_CLIENT_ID || app.oauthWebClientId;
-const SIGN_IN_CANCELLED = "Google sign-in was cancelled. Press Share and click Allow.";
+const SIGN_IN_CANCELLED = "Google sign-in didn't finish. Press Share to try again.";
 const OFFSCREEN = "offscreen.html";
 const OFFSCREEN_URL = chrome.runtime.getURL(OFFSCREEN);
 const LIMIT = `${app.freeLimitMinutes}:00`;
@@ -26,8 +26,9 @@ const SAY = {
   page: "This page can't be recorded. Open a normal web page, or pick Window or Screen.",
   boxPage: "Draw a box works on normal web pages. Open one, or pick Window or Screen.",
   busy: "This page is already being recorded or shared. Stop that first.",
+  noSystemSound: "No computer sound: next time, turn on the share window's system-audio switch (“Share system audio”).",
   held: "Your browser is still holding this page after the last try. Close this tab and open the page again, or pick Screen.",
-  denied: "Chrome didn't allow the recording. Press Record and choose Share or Allow.",
+  denied: "Your browser didn't allow the recording. Press Record and choose Share or Allow.",
   start: "The recording couldn't start. Try again.",
   short: "Too short to save. Record for at least a second.",
   save: "The recording couldn't be saved. Try again.",
@@ -35,7 +36,7 @@ const SAY = {
   disk: "Your disk is full. What was recorded is saved — free some space before the next one.",
   noSpace: "Your disk is full, so the video couldn't be saved. Free some space and press Save again.",
   cancelled: "Not saved yet. Press Save again to choose where.",
-  download: "Chrome couldn't save the video. Press Save again.",
+  download: "Your browser couldn't save the video. Press Save again.",
   job: "That didn't work. Try again.",
   notSetUp: "Share isn't switched on in this copy yet.",
   micBlocked: "Recording without the microphone (it's blocked).",
@@ -155,7 +156,7 @@ async function startError(e, tabId) {
 
 function friendlyStart(e) {
   const m = String((e && e.message) || e);
-  if (/Chrome pages cannot be captured|not been invoked|Cannot access|cannot be scripted/i.test(m)) return "page";
+  if ((e && e.kind === "page") || /Chrome pages cannot be captured|not been invoked|Cannot access|cannot be scripted/i.test(m)) return "page";
   if (/active stream/i.test(m)) return "busy";
   if (/Permission|NotAllowed/i.test(m)) return "denied";
   return "start";
@@ -167,11 +168,16 @@ async function start({ tabId } = {}) {
   const tab = tabId ? await chrome.tabs.get(tabId).catch(() => null) : await activeTab();
   if (!tab) return { ok: false, error: "No tab to record." };
   const s = await settings();
+  // This page on the browser's own pages: some browsers allow the capture but send no picture.
+  if (s.mode === "tab" && isBrowserPage(tab.url || tab.pendingUrl)) return { ok: false, error: SAY.page };
   const pro = await isPro();
   await clearDone(st);
   await badge(null);
   const injected = await inject(tab.id);
   if (s.mode === "box" && !injected) return { ok: false, error: SAY.boxPage };
+  // The browser's own pages (New Tab, settings) hide their address from extensions and can't be
+  // scripted; some browsers still "capture" them but send one frame at most. Refuse them up front.
+  if (s.mode === "tab" && !injected && !tab.url) return { ok: false, error: SAY.page };
   // Tab: ask Chrome for the stream now, while the panel is open, so a refusal is shown right there.
   let streamId = null;
   if (s.mode === "tab") {
@@ -210,6 +216,9 @@ async function begin(tabId, s, pro, choice, stamp, streamId = null) {
     }
     await ensureOffscreen();
     const info = await toOffscreen("rec:start", { mode: s.mode, streamId, captureSize: size, viewport, box: choice && choice.box, quality: s.quality, mic: s.mic, sound: s.sound, pro, limitMs: app.freeLimitMinutes * 60_000, stamp });
+    // A page where nothing moves sends no picture until something repaints: make one invisible repaint now,
+    // so the recorder has a first frame to show (and repeat) from the start.
+    if ((s.mode === "tab" || s.mode === "box") && (await getState()).injected) await toTab(tabId, { type: "nudge" });
     let st = await current();
     if (!st) return toOffscreen("rec:abort").catch(() => {});
     const extras = pro ? { camera: s.camera, clicks: s.clicks } : {};
@@ -220,7 +229,7 @@ async function begin(tabId, s, pro, choice, stamp, streamId = null) {
       if (!st || st.phase !== "countdown") return; // cancelled during 3-2-1
     }
     await toOffscreen("rec:go");
-    await setState({ phase: "recording", startedAt: Date.now(), bankedMs: 0, paused: false, format: info.format, box: choice && choice.box, micBlocked: info.micBlocked, toast: info.micBlocked ? SAY.micBlocked : null, ...extras });
+    await setState({ phase: "recording", startedAt: Date.now(), bankedMs: 0, paused: false, format: info.format, box: choice && choice.box, micBlocked: info.micBlocked, soundMissing: !!info.noSystemSound, toast: info.micBlocked ? SAY.micBlocked : info.noSystemSound ? SAY.noSystemSound : null, ...extras });
     await badge("rec");
     await chrome.storage.session.remove("failedTab");
   } catch (e) {
@@ -330,8 +339,9 @@ async function onDownload(d) {
   if (d.state.current === "complete") {
     const last = p.then === "gif" ? st.last : { ...st.last, downloadId: d.id };
     await badge(st.injected ? null : "saved");
-    const toast = p.then === "trim" ? "Trimmed copy saved to Downloads" : p.then === "gif" ? "GIF saved to Downloads" : st.toast;
-    await setState({ phase: "done", pendingDownload: null, job: null, last, toast, gifId: p.then === "gif" ? d.id : st.gifId, unsaved: false });
+    const gif = st.last && st.last.durationMs > 30_000 ? "GIF of the first 30 seconds saved to Downloads" : "GIF saved to Downloads";
+    const toast = p.then === "trim" ? "Trimmed copy saved to Downloads" : p.then === "gif" ? gif : st.toast;
+    await setState({ phase: "done", pendingDownload: null, job: null, last, toast: p.then === "saved" && st.unsaved ? null : toast, gifId: p.then === "gif" ? d.id : st.gifId, unsaved: false });
     await afterJob();
   } else if (d.state.current === "interrupted") {
     // Keep the file and its link: "Save again" retries. (A cancelled "Save as" dialog lands here too.)
@@ -421,7 +431,9 @@ async function job(kind, m, st) {
     else if (kind === "gif") r = await toOffscreen("job:gif", { id, last: st.last });
     else if (kind === "share") {
       if (!TEST_TOKEN && /^OAUTH_CLIENT_ID/.test(chrome.runtime.getManifest().oauth2?.client_id || "OAUTH_CLIENT_ID")) throw Object.assign(new Error(SAY.notSetUp), { kind: "setup" });
+      await setState({ job: { ...(await getState()).job, stage: "signin" } });
       const token = await getToken();
+      await setState({ job: { ...(await getState()).job, stage: "upload" } });
       r = await toOffscreen("job:share", { id, last: st.last, token, name: st.last.filename });
     }
     await finishJob(kind, m, st, r);
@@ -542,6 +554,14 @@ const handlers = {
     const st = await getState();
     // Finish first; the card just stays. A job with no recorder behind it is over, though.
     if (st.phase === "saving" || (st.job && (await chrome.offscreen.hasDocument()))) return { ok: false, error: "busy" };
+    // A saved recording stays reachable from the panel ("Last recording": Share, Trim, GIF) until the next
+    // recording or a browser restart; closing the card only takes it off the page.
+    if (st.phase === "done" && st.last && !st.unsaved) {
+      if (st.injected && st.tabId) toTab(st.tabId, { type: "teardown" });
+      await badge(null);
+      await setState({ injected: false, doneSeen: true, toast: null });
+      return;
+    }
     await clearDone(st);
     await badge(null);
     await setState(IDLE, { replace: true });

@@ -23,6 +23,6 @@ $("go").addEventListener("click", async () => {
         ? `No ${thing} found. Plug one in and press Allow again — or turn it off in the panel.`
         : e && e.name === "NotReadableError"
           ? `Another app is using the ${thing}. Close it and press Allow again.`
-          : `Chrome blocked it. Click the icon at the right of the address bar, choose Allow, then press Allow here again — or turn the ${thing} off in the panel.`;
+          : `Your browser blocked it. Click the icon at the right of the address bar, choose Allow, then press Allow here again — or turn the ${thing} off in the panel.`;
   }
 });

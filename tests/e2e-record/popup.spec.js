@@ -9,6 +9,8 @@ const STATES = {
   recording: { phase: "recording", mode: "tab", startedAt: Date.now() - 83_000, bankedMs: 0, paused: false, injected: true },
   saving: { phase: "saving", mode: "tab" },
   done: { phase: "done", last: { filename: "Neat Record 2026-10-23 at 14.05.32.mp4", durationMs: 83_000, size: 27_400_000, opfsName: "x.mp4" }, toast: "Link copied", link: "https://drive.google.com/file/d/abc/view" },
+  // The main screen with the last recording one click away (its card was closed).
+  lastRecording: { phase: "done", doneSeen: true, injected: false, last: { filename: "Neat Record 2026-10-23 at 14.05.32.mp4", durationMs: 83_000, size: 27_400_000, opfsName: "x.mp4" } },
   error: { phase: "error", toast: "This page can't be recorded. Open a normal web page and try again." },
 };
 
@@ -144,8 +146,9 @@ test.describe("the Saved card shows once, then the main screen", () => {
       await panel.locator("#new").click();
       await expect(panel.locator("#idle")).toBeVisible();
       await expect(panel.locator("#record")).toBeVisible();
+      await expect(panel.locator("#last")).toBeVisible();
       await panel.waitForTimeout(1_000);
-      expect((await state(sw)).phase).toBe("idle");
+      expect((await state(sw)).phase).toBe("done"); // nothing started; the last recording stays reachable
 
       // Another recording, stopped with the panel closed (the page shows its own card): the panel opens on the main screen.
       await panel.close();
@@ -193,4 +196,26 @@ test.describe("the Saved card shows once, then the main screen", () => {
       await ctx.close();
     }
   });
+});
+
+test("a long recording says the GIF keeps the first 30 seconds, before you press it", async () => {
+  const ctx = await launch({ viewport: { width: 344, height: 448 } });
+  try {
+    const sw = await worker(ctx);
+    await unlockPro(sw);
+    const page = ctx.pages()[0] || (await ctx.newPage());
+    for (const [ms, label] of [
+      [95_000, "1:35 · 2.0 MB · GIF: first 30 s"],
+      [12_000, "0:12 · 2.0 MB"],
+    ]) {
+      await sw.evaluate((ms) => self.neatTest.setState({ phase: "done", last: { filename: "x.mp4", durationMs: ms, size: 2_097_152, opfsName: "x.mp4" } }, { replace: true }), ms);
+      await page.goto(`chrome-extension://${ID}/popup.html`);
+      await page.locator("body.ready").waitFor();
+      if (await page.locator("#last").isVisible()) await page.locator("#last").click(); // card already seen once
+      await expect(page.locator("#done-meta")).toHaveText(label);
+      await expect(page.locator("#done-actions button").last()).toHaveText("GIF"); // short: one line
+    }
+  } finally {
+    await ctx.close();
+  }
 });

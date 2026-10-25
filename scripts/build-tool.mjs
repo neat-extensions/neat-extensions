@@ -78,6 +78,7 @@ export async function buildTool(appName, args) {
   if (buyPlaceholder) console.log("  ⚠ Payment Link is a placeholder: the Pro page shows 'coming soon'");
   if (flag("--release")) {
     if (oauthPlaceholder) fail("release build still has the placeholder OAuth client id (apps/record/app.config.js → oauthClientId)");
+    if (/^OAUTH_WEB_CLIENT_ID/.test(app.oauthWebClientId)) fail("release build still has the placeholder web sign-in client id for Edge/Brave (apps/record/app.config.js → oauthWebClientId)");
     if (buyPlaceholder) fail("release build still has the placeholder Payment Link (apps/record/app.config.js → buyUrl)");
     // The "?" link and the Pro page must exist before anyone can install this.
     for (const f of ["help.html", "pro.html", "privacy.html", "poster.png"]) {

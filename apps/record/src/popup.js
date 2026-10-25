@@ -100,6 +100,11 @@ function buildIdle() {
   radioKeys(seg);
 
   $("record").addEventListener("click", record);
+  // The last recording (Share, Trim, GIF, Show) after its card has gone: reopens the "Saved" card here.
+  $("last").addEventListener("click", () => {
+    witnessed = true;
+    paint();
+  });
   $("help").addEventListener("click", (e) => {
     e.preventDefault();
     openTab(app.helpUrl);
@@ -149,7 +154,12 @@ function paintIdle() {
   $("quality-caption").textContent = `${q.detail} · ${sizeLabel(q)}${pro ? "" : ` · Free: up to ${app.freeLimitMinutes} minutes`}`;
   // A quiet line on how to stop, until there's something more important to say.
   const msg = $("message");
-  if (!msg.classList.contains("error")) msg.textContent = settings.mode === "box" ? "Drag a box on the page. Stop is next to it." : settings.mode === "tab" ? "To stop, click this icon again." : "To stop, click this icon or Chrome's “Stop sharing”.";
+  const last = state.phase === "done" && state.last ? state.last : null;
+  // The panel is one fixed size: "Last recording" takes the hint line's place (an error still shows).
+  $("last").hidden = !last || msg.classList.contains("error");
+  msg.hidden = !$("last").hidden;
+  if (last) $("last").textContent = `Last recording · ${clock(last.durationMs || 0)} — open`;
+  if (!msg.classList.contains("error")) msg.textContent = settings.mode === "box" ? "Drag a box on the page. Stop is next to it." : settings.mode === "tab" ? "To stop, click this icon, then Stop." : "To stop, click this icon, then Stop — or your browser's “Stop sharing”.";
 }
 
 function paintPro() {
@@ -171,6 +181,8 @@ function say(text) {
   const msg = $("message");
   msg.classList.add("error");
   msg.textContent = text;
+  msg.hidden = false;
+  $("last").hidden = true; // the error takes the line
 }
 
 async function record() {
@@ -211,6 +223,8 @@ function paintLive() {
       ? "Or press Esc on the page."
       : state.micBlocked && state.phase === "recording"
         ? "Recording without the microphone (it's blocked)."
+        : state.soundMissing && state.phase === "recording"
+          ? "No computer sound: the share window's system-audio switch was off."
         : state.limitMs && state.phase === "recording"
           ? `Free recordings stop and save at ${clock(state.limitMs)}.`
           : "";
@@ -223,7 +237,7 @@ function paintDone() {
   $("done-badge").replaceChildren(icon(err ? "close" : "check", { size: 18 }));
   $("done-badge").classList.toggle("err", err);
   const last = state.last;
-  $("done-meta").textContent = last && !err ? `${clock(last.durationMs)} · ${mb(last.size)}` : "";
+  $("done-meta").textContent = last && !err ? `${clock(last.durationMs)} · ${mb(last.size)}${pro && last.durationMs > 30_000 ? " · GIF: first 30 s" : ""}` : "";
   const acts = $("done-actions");
   acts.replaceChildren();
   if (!err && last) {
@@ -234,9 +248,9 @@ function paintDone() {
     };
     acts.append(state.unsaved ? btn("folder", "Save again", "save-again", false) : btn("folder", "Show file", "show", false));
     // Share, Trim and GIF need the file's index (its length); a recording saved without one only gets Show file.
-    if (!last.unindexed) acts.append(btn("link", "Share", "share", !pro), btn("scissors", "Trim", "trim", !pro), btn("gif", "GIF (30 s)", "gif", !pro));
+    if (!last.unindexed) acts.append(btn("link", "Share", "share", !pro), btn("scissors", "Trim", "trim", !pro), Object.assign(btn("gif", "GIF", "gif", !pro), { title: pro ? "A GIF of the first 30 seconds" : "GIF — Pro" }));
   }
-  $("done-toast").textContent = state.job ? (state.job.kind === "share" ? `Uploading… ${Math.round((state.job.fraction || 0) * 100)}%` : "Working…") : state.toast || state.note || "";
+  $("done-toast").textContent = state.job ? (state.job.kind === "share" ? (state.job.stage === "signin" ? "Waiting for Google sign-in…" : `Uploading… ${Math.round((state.job.fraction || 0) * 100)}%`) : "Working…") : state.toast || state.note || "";
   $("done-linkrow").hidden = !state.link;
   if (state.link) $("done-link").value = state.link;
   $("new").textContent = err ? "Try again" : "Record again";
@@ -291,7 +305,8 @@ function paint() {
   $("new").addEventListener("click", async () => {
     const r = await send({ type: "dismiss" });
     if (r && r.ok === false) return;
-    state = { phase: "idle" };
+    const st = await send({ type: "state" });
+    state = st && st.phase ? st : { phase: "idle" };
     witnessed = false;
     paint();
   });

@@ -7,6 +7,11 @@ export function avcLevel(width, height) {
   return mbs <= 8192 ? "28" : mbs <= 8704 ? "2a" : mbs <= 22080 ? "32" : "33";
 }
 
+/** The browser's own pages (settings, version, new tab, extension pages): no picture can be recorded from them. */
+export function isBrowserPage(url) {
+  return /^(chrome|edge|brave|opera|vivaldi|about|chrome-extension|extension|devtools|view-source|chrome-search):/i.test(url || "");
+}
+
 /** MP4 (H.264/AAC) when Chrome can record it, else WebM (VP9/Opus, then VP8). */
 export function pickFormat(hasAudio, width, height, isSupported) {
   const avc = `avc1.6400${avcLevel(width, height)}`;

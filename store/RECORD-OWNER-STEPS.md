@@ -11,17 +11,19 @@ not been submitted:
 Open every link with `npm run open -- <link>` from `C:\Projects\Extension Factory`,
 so it opens in the **arcan2252@gmail.com** Chrome profile.
 
-**Part 1 is done** (client `60013913850-g4iv…apps.googleusercontent.com`,
-2026-10-24). The final release package `dist\neat-record-1.0.0.zip` is uploaded
-to the draft. The licence Worker fix is deployed.
+**Done (2026-10-25):** Part 1 (Chrome client `60013913850-g4iv…`), Part 1b (Edge/Brave web client
+`60013913850-48am…`), the licence Worker fix, your real-Chrome checks, and **Neat Record 1.0.1**
+(`dist\neat-record-1.0.1.zip`) uploaded to the draft after passing both verifications.
 
-**Left for you:** Part 1b (one more sign-in client, so Share works in Edge and
-Brave), Part 2 (the store screens), then the real-Chrome checks at the end.
-Then press **Submit for review** on the item, or tell me to submit it.
+**Left for you:** Part 2 (the store screens). Then press **Submit for review** on the item, or tell me to submit it.
 
 ---
 
-## Part 1b — The sign-in client for Edge and Brave (send me its client ID)
+## Part 1b — The sign-in client for Edge and Brave — DONE (2026-10-24)
+
+Client `60013913850-48amvjt6pp5pbh9td9k7mfopdspr501u.apps.googleusercontent.com`, redirect
+`https://ilaekohhdchofcpdoohciddphpogghae.chromiumapp.org/`, now in `apps/record/app.config.js → oauthWebClientId`.
+The steps below are kept for reference.
 
 Edge and Brave don't have Chrome's built-in Google sign-in, so Share signs in
 through Google's web page there. That needs a second client of type

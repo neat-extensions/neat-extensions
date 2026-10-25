@@ -21,6 +21,7 @@ import { createDrive, DriveError } from "./lib/drive.js";
 
 const TIME_SCALE = Number(process.env.RECORD_TIME_SCALE || 1);
 const DRIVE_BASE = process.env.RECORD_DRIVE_BASE || "https://www.googleapis.com";
+const STILL_MS = 250;
 const SW_URL = chrome.runtime.getURL("background.js");
 const toSw = (msg) => chrome.runtime.sendMessage({ ...msg, target: "sw" }).catch(() => {});
 const timeout = (ms, what) => new Promise((_, rej) => setTimeout(() => rej(new Error(`${what} took too long`)), ms));
@@ -93,6 +94,8 @@ async function captureDisplay(mode, withAudio) {
  * no scaling, no colour conversion (measured in tests/e2e-record/measure.spec.js).
  * A resized window, a switched source or a resized/zoomed tab is scaled into
  * the fixed size instead of breaking the file. Paused: frames are dropped here.
+ * A page where nothing moves sends no new frames at all: the last frame is
+ * repeated every STILL_MS so the video has a picture for its whole length.
  */
 function frameTrack(track, { box = null, viewport = null, maxHeight = null, isPaused }) {
   const proc = new MediaStreamTrackProcessor({ track });
@@ -102,6 +105,33 @@ function frameTrack(track, { box = null, viewport = null, maxHeight = null, isPa
   let key = "";
   let rect = null;
   let canvas = null;
+  let held = null; // the last frame sent, kept to repeat while the picture is still
+  let heldAt = 0;
+  let still = null;
+  let ctlRef = null;
+  let copy = null;
+  const repeat = () => {
+    still = setTimeout(repeat, STILL_MS);
+    if (!held || isPaused()) return;
+    try {
+      // A fresh frame drawn from the held one: the recorder ignores a re-sent captured frame
+      // (measured: 35 re-sent tab frames still gave a one-frame file; drawn copies give a frame each).
+      if (!copy || copy.width !== held.displayWidth || copy.height !== held.displayHeight) copy = new OffscreenCanvas(held.displayWidth, held.displayHeight);
+      copy.getContext("2d").drawImage(held, 0, 0);
+      ctlRef.enqueue(new VideoFrame(copy, { timestamp: held.timestamp + Math.round((performance.now() - heldAt) * 1000) }));
+    } catch {
+      clearTimeout(still); // the stream has ended
+    }
+  };
+  const emit = (ctl, vf) => {
+    ctlRef = ctl;
+    held?.close();
+    held = vf.clone();
+    heldAt = performance.now();
+    clearTimeout(still);
+    still = setTimeout(repeat, STILL_MS);
+    ctl.enqueue(vf);
+  };
   const setViewport = (v) => {
     view = v;
     key = "";
@@ -120,7 +150,7 @@ function frameTrack(track, { box = null, viewport = null, maxHeight = null, isPa
           canvas = rect.width === size.width && rect.height === size.height ? null : new OffscreenCanvas(size.width, size.height);
         }
         if (!canvas) {
-          ctl.enqueue(box || rect.width !== fw || rect.height !== fh ? new VideoFrame(frame, { visibleRect: rect, timestamp: frame.timestamp }) : frame.clone());
+          emit(ctl, box || rect.width !== fw || rect.height !== fh ? new VideoFrame(frame, { visibleRect: rect, timestamp: frame.timestamp }) : frame.clone());
           return;
         }
         // Scale into the fixed size, letterboxed, keeping the picture's shape.
@@ -131,10 +161,15 @@ function frameTrack(track, { box = null, viewport = null, maxHeight = null, isPa
         g.fillStyle = "#000";
         g.fillRect(0, 0, size.width, size.height);
         g.drawImage(frame, rect.x, rect.y, rect.width, rect.height, (size.width - w) / 2, (size.height - h) / 2, w, h);
-        ctl.enqueue(new VideoFrame(canvas, { timestamp: frame.timestamp }));
+        emit(ctl, new VideoFrame(canvas, { timestamp: frame.timestamp }));
       } finally {
         frame.close();
       }
+    },
+    flush() {
+      clearTimeout(still);
+      held?.close();
+      held = null;
     },
   });
   proc.readable.pipeThrough(out).pipeTo(gen.writable).catch(() => {});
@@ -167,7 +202,7 @@ async function start(m) {
       video = s.getVideoTracks()[0];
       if (m.sound && s.getAudioTracks().length) soundStream = new MediaStream(s.getAudioTracks());
     } else {
-      const s = await captureDisplay(m.mode, m.sound);
+      const s = await captureDisplay(m.mode, m.sound && m.mode !== "window");
       streams.push(s);
       video = s.getVideoTracks()[0];
       if (s.getAudioTracks().length) soundStream = new MediaStream(s.getAudioTracks());
@@ -255,7 +290,9 @@ async function start(m) {
   setTimeout(() => {
     if (rec && rec.stamp === stamp && !rec.started) abort();
   }, 120_000);
-  return { format: fmt.ext, width: out.width, height: out.height, micBlocked };
+  // Screen with Sound on, but the share window's "Share system audio" was off: no computer sound.
+  const noSystemSound = m.mode === "screen" && !!m.sound && !soundStream;
+  return { format: fmt.ext, width: out.width, height: out.height, micBlocked, noSystemSound };
 }
 
 function go() {
@@ -454,7 +491,7 @@ async function share({ last, token, name }) {
     getToken: async () => {
       if (current) return current;
       const r = await chrome.runtime.sendMessage({ target: "sw", type: "drive:token" });
-      if (!r || !r.token) throw new DriveError("auth", (r && r.error) || "Google sign-in was cancelled.");
+      if (!r || !r.token) throw new DriveError("auth", (r && r.error) || "Google sign-in didn't finish. Press Share to try again.");
       return (current = r.token);
     },
     dropToken: async (t) => {

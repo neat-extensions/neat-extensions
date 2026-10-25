@@ -125,3 +125,83 @@ for (const quality of ["good", "better"]) {
     }
   });
 }
+
+test("window: no sound in the file even with Sound left on (the picker can also offer a tab)", async () => {
+  const ctx = await launch({ display: true });
+  try {
+    const sw = await worker(ctx);
+    const page = ctx.pages()[0] || (await ctx.newPage());
+    await page.goto(`${server.base}/busy.html`);
+    const tabId = await tabIdOf(sw, server.base);
+    const { download } = await recordFor(sw, { tabId, ms: 3_000, settings: { mode: "window", sound: true, mic: false } });
+    const info = await inspectMp4(bufferSource(readFileSync(download.filename)));
+    expect(info.tracks).toEqual(["vide"]);
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("screen with Sound on: either the computer's sound is in the file, or the card says it was off", async () => {
+  const ctx = await launch({ display: true });
+  try {
+    const sw = await worker(ctx);
+    const page = ctx.pages()[0] || (await ctx.newPage());
+    await page.goto(`${server.base}/busy.html`);
+    const tabId = await tabIdOf(sw, server.base);
+    const { download, st } = await recordFor(sw, { tabId, ms: 3_000, settings: { mode: "screen", sound: true, mic: false } });
+    const info = await inspectMp4(bufferSource(readFileSync(download.filename)));
+    const hasSound = info.tracks.includes("soun");
+    console.log("  screen sound:", hasSound ? "in the file" : "missing", "| toast:", st.toast);
+    if (hasSound) expect(st.toast || "").not.toMatch(/Share system audio/);
+    else expect(st.toast).toBe("No computer sound: next time, turn on the share window's system-audio switch (“Share system audio”).");
+  } finally {
+    await ctx.close();
+  }
+});
+
+test("This page where nothing moves: the video has a picture all the way through, not one frame", async () => {
+  const ctx = await launch();
+  try {
+    const sw = await worker(ctx);
+    const page = ctx.pages()[0] || (await ctx.newPage());
+    await page.goto(`${server.base}/still.html`);
+    const tabId = await tabIdOf(sw, server.base);
+    const { download } = await recordFor(sw, { tabId, ms: 6_000, settings: { mode: "tab", sound: false, mic: false, quality: "better" } });
+    const player = await ctx.newPage();
+    await player.goto(`${server.base}/player.html`);
+    // Play it through and count the frames the player really shows.
+    const r = await player.evaluate(async (src) => {
+      const v = document.createElement("video");
+      v.muted = true;
+      v.src = src;
+      document.body.append(v);
+      await new Promise((res) => (v.onloadeddata = res));
+      let frames = 0;
+      const count = () => {
+        frames++;
+        v.requestVideoFrameCallback(count);
+      };
+      v.requestVideoFrameCallback(count);
+      v.playbackRate = 4;
+      await v.play();
+      await new Promise((res) => (v.onended = res));
+      // A seek near the end lands on a real picture (not a blank, waiting player).
+      v.currentTime = v.duration - 1;
+      await new Promise((res) => (v.onseeked = res));
+      const c = new OffscreenCanvas(v.videoWidth, v.videoHeight);
+      const g = c.getContext("2d");
+      g.drawImage(v, 0, 0);
+      const d = g.getImageData(0, 0, c.width, c.height).data;
+      let sum = 0;
+      for (let i = 0; i < d.length; i += 4) sum += (d[i] + d[i + 1] + d[i + 2]) / 3;
+      return { duration: v.duration, frames, w: v.videoWidth, h: v.videoHeight, brightness: Math.round(sum / (d.length / 4)) };
+    }, `${server.base}/file?p=${encodeURIComponent(download.filename)}`);
+    console.log("  still page:", JSON.stringify(r));
+    expect(r.duration).toBeGreaterThan(5);
+    expect(r.frames).toBeGreaterThan(10); // was 1
+    expect(r.w).toBeGreaterThan(0);
+    expect(r.brightness).toBeGreaterThan(200); // the white page, not a black or empty frame
+  } finally {
+    await ctx.close();
+  }
+});

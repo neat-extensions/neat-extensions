@@ -1,7 +1,7 @@
 // Pro: a licence key pasted on the Pro page unlocks everything and is kept in
 // chrome.storage.sync; pause/resume, trim, GIF and Share produce correct output.
 import { test, expect, launch, worker, startServer, startFakeDrive, setSettings, tabIdOf, call, waitPhase, lastDownload, probe, testLicence, unlockPro, state, ID, RESULTS } from "./helpers.js";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { bufferSource } from "../../apps/record/src/lib/bytes.js";
 import { inspectMp4 } from "../../apps/record/src/lib/mp4.js";
@@ -262,7 +262,13 @@ test("camera bubble: when the camera works, no 'Camera blocked' text — on the 
     };
     const clean = bubbleStats(await shotPx());
     await camFrame.evaluate(() => (document.getElementById("msg").hidden = false));
-    const withText = bubbleStats(await shotPx());
+    await expect(camFrame.locator("#msg")).toBeVisible();
+    // Wait for the bubble to repaint with the text before measuring it.
+    let withText = bubbleStats(await shotPx());
+    for (let i = 0; i < 20 && withText.white <= clean.white + 0.02; i++) {
+      await page.waitForTimeout(100);
+      withText = bubbleStats(await shotPx());
+    }
     await camFrame.evaluate(() => (document.getElementById("msg").hidden = true));
     expect(clean.red).toBeGreaterThan(0.6);
     expect(withText.white).toBeGreaterThan(clean.white + 0.02);
@@ -272,7 +278,7 @@ test("camera bubble: when the camera works, no 'Camera blocked' text — on the 
     await waitPhase(sw, "done", 60_000);
     const d = await lastDownload(sw);
     const vp = page.viewportSize();
-    // The recorded frame at 2 s, the same middle part of the bubble, scaled to the video's size.
+    // A recorded frame 1 s before the end (the bubble is up by then), the same middle part of it, scaled to the video's size.
     const px = await page.evaluate(
       async ({ src, inner, vp }) => {
         const v = document.createElement("video");
@@ -282,18 +288,39 @@ test("camera bubble: when the camera works, no 'Camera blocked' text — on the 
         await new Promise((r) => (v.onloadeddata = r));
         await new Promise((r) => {
           v.onseeked = r;
-          v.currentTime = 2;
+          v.currentTime = Math.max(0, v.duration - 1);
         });
         const sx = v.videoWidth / vp.width;
         const sy = v.videoHeight / vp.height;
         const c = new OffscreenCanvas(Math.round(inner.width * sx), Math.round(inner.height * sy));
         const g = c.getContext("2d");
-        g.drawImage(v, inner.x * sx, inner.y * sy, inner.width * sx, inner.height * sy, 0, 0, c.width, c.height);
-        return [...g.getImageData(0, 0, c.width, c.height).data];
+        // Under load the seeked frame can arrive a moment after "seeked": draw until there is a picture.
+        for (let i = 0; i < 30; i++) {
+          g.clearRect(0, 0, c.width, c.height);
+          g.drawImage(v, inner.x * sx, inner.y * sy, inner.width * sx, inner.height * sy, 0, 0, c.width, c.height);
+          if (g.getImageData(0, 0, 1, 1).data[3] > 0) break;
+          await new Promise((r) => setTimeout(r, 100));
+        }
+        // The whole frame too, kept as evidence if the check fails.
+        const full = new OffscreenCanvas(v.videoWidth, v.videoHeight);
+        full.getContext("2d").drawImage(v, 0, 0);
+        const blob = await full.convertToBlob({ type: "image/png" });
+        const b64 = (
+          await new Promise((r) => {
+            const fr = new FileReader();
+            fr.onload = () => r(fr.result);
+            fr.readAsDataURL(blob);
+          })
+        ).split(",")[1];
+        return { data: [...g.getImageData(0, 0, c.width, c.height).data], b64, at: v.currentTime, duration: v.duration };
       },
       { src: `${server.base}/file?p=${encodeURIComponent(d.filename)}`, inner, vp },
     );
-    const rec = bubbleStats(px);
+    const rec = bubbleStats(px.data);
+    if (rec.red <= 0.5) {
+      writeFileSync(path.join(RESULTS, "camera-frame-failed.png"), Buffer.from(px.b64, "base64"));
+      console.log("  camera frame check failed:", JSON.stringify({ ...rec, at: px.at, duration: px.duration, inner, vp }));
+    }
     expect(rec.red, "the camera picture is in the video").toBeGreaterThan(0.5);
     expect(rec.white, "no overlay text in the video").toBeLessThan(clean.white + 0.01);
   } finally {
@@ -337,8 +364,63 @@ test("Share without Chrome's own sign-in (Edge, Brave): Google's web sign-in, th
     drive.seen.denySignIn = true;
     const before = drive.seen.files.length;
     expect((await call(sw, "share")).ok).toBe(true);
-    await expect.poll(async () => (await state(sw)).toast, { timeout: 60_000 }).toBe("Google sign-in was cancelled. Press Share and click Allow.");
+    await expect.poll(async () => (await state(sw)).toast, { timeout: 60_000 }).toBe("Google sign-in didn't finish. Press Share to try again.");
     expect(drive.seen.files.length).toBe(before);
+  } finally {
+    await ctx.close();
+    await drive.close();
+  }
+});
+
+// Also takes the help page's "Press Copy" picture: the real panel, captured here (scripts/store-record.mjs uses it).
+export const HELP_SHOTS = path.join(RESULTS, "help-shots");
+
+test("closing the Saved card keeps the last recording: the panel's Last recording reopens it, and Share there says Link ready — press Copy", async () => {
+  test.setTimeout(180_000);
+  const drive = await startFakeDrive();
+  const ctx = await launch();
+  try {
+    const sw = await worker(ctx);
+    await unlockPro(sw);
+    const page = ctx.pages()[0] || (await ctx.newPage());
+    await page.goto(`${server.base}/busy.html`);
+    const tabId = await tabIdOf(sw, server.base);
+    await setSettings(sw, { mode: "tab", sound: false, mic: false, countdown: false, camera: false, clicks: false });
+    await call(sw, "start", { tabId });
+    await waitPhase(sw, "recording");
+    await page.waitForTimeout(3_000);
+    await call(sw, "stop");
+    await waitPhase(sw, "done");
+    // The user closes the card on the page.
+    await page.locator("neat-record-ui").locator('[data-act="dismiss"]').click();
+    await expect(page.locator("neat-record-ui").locator(".card")).toHaveCount(0);
+    const st = await state(sw);
+    expect(st.phase).toBe("done");
+    expect(await sw.evaluate(async () => { const out = []; for await (const n of (await navigator.storage.getDirectory()).keys()) out.push(n); return out; })).toHaveLength(1); // still there for Share/Trim/GIF
+
+    const panel = await ctx.newPage();
+    await panel.setViewportSize({ width: 344, height: 448 });
+    await panel.goto(`chrome-extension://${ID}/popup.html`);
+    await expect(panel.locator("#idle")).toBeVisible();
+    await expect(panel.locator("#last")).toHaveText(/^Last recording · 0:0\d — open$/);
+    await panel.locator("#last").click();
+    await expect(panel.locator("#done")).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Trim" })).toBeEnabled();
+    await expect(panel.getByRole("button", { name: "GIF" })).toBeEnabled(); // a short clip: plain "GIF"
+    await panel.getByRole("button", { name: "Share" }).click();
+    await expect(panel.locator("#done-toast")).toHaveText("Link ready — press Copy. Anyone with the link can watch.", { timeout: 60_000 });
+    await expect(panel.locator("#done-link")).toHaveValue("https://drive.google.com/file/d/file1/view?usp=drivesdk");
+    // The help page's picture: this panel, as it is now.
+    mkdirSync(HELP_SHOTS, { recursive: true });
+    await panel.screenshot({ path: path.join(HELP_SHOTS, "panel-link-ready.png") });
+    const copy = await panel.locator("#copy").boundingBox();
+    writeFileSync(path.join(HELP_SHOTS, "panel-link-ready.json"), JSON.stringify({ copy }));
+    await panel.locator("#copy").click();
+    await expect(panel.locator("#done-toast")).toHaveText("Link copied — anyone with the link can watch");
+    // Record again: back to the main screen, the last recording still one click away.
+    await panel.locator("#new").click();
+    await expect(panel.locator("#idle")).toBeVisible();
+    await expect(panel.locator("#last")).toBeVisible();
   } finally {
     await ctx.close();
     await drive.close();

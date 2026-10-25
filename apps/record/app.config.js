@@ -9,7 +9,7 @@ export default {
   id: "record",
   name: "Record",
   productName: `${BRAND} Record`,
-  version: "1.0.0",
+  version: "1.0.1",
   // The public key the Chrome Web Store gave the item (fetchStatus, 2026-10-24; the store refuses a
   // manifest key on a new item, so .secrets/record-extension-key.pem is retired). It pins the same ID
   // in unpacked builds as in the store, which the Google OAuth client is bound to.
@@ -23,8 +23,8 @@ export default {
   // Browsers without Chrome's own sign-in (Edge, Brave, …) sign in through a web page instead
   // (chrome.identity.launchWebAuthFlow). That needs a second client, type "Web application", with the
   // redirect URI https://<extensionId>.chromiumapp.org/ — owner step in store/RECORD-OWNER-STEPS.md.
-  // While it is a placeholder, Share on those browsers says it works in Chrome for now.
-  oauthWebClientId: "OAUTH_WEB_CLIENT_ID.apps.googleusercontent.com",
+  // Created 2026-10-24 (Cloud project neat-extensions). --release refuses the placeholder.
+  oauthWebClientId: "60013913850-48amvjt6pp5pbh9td9k7mfopdspr501u.apps.googleusercontent.com",
   driveScope: "https://www.googleapis.com/auth/drive.file",
   // Public half of .secrets/licence-private.jwk (scripts/licence-sign.mjs).
   licencePublicKey: { kty: "EC", crv: "P-256", x: "o4PFK7bPn2hjfql_HtvDGUXXnExckr1gBDav74IWKcU", y: "BfGeyMQjunl63SIfkzdg1EAIg3rUC0uVGzJoORLRqE0" },

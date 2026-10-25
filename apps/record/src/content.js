@@ -17,6 +17,8 @@ function main() {
   const host = document.createElement(TAG);
   host.style.cssText = "all: initial; position: fixed; inset: 0 auto auto 0; width: 0; height: 0; z-index: 2147483647;";
   // Closed, so the page cannot read or click our controls (e2e builds open it for Playwright).
+  // A copy left by an earlier load of the extension (reloaded or updated) can't work any more: replace it.
+  for (const old of document.querySelectorAll(TAG)) old.remove();
   const root = host.attachShadow({ mode: process.env.RECORD_SHADOW === "open" ? "open" : "closed" });
   const sheet = new CSSStyleSheet();
   sheet.replaceSync(TOKENS + CSS);
@@ -38,6 +40,7 @@ function main() {
   chrome.runtime.onMessage.addListener(onMessage);
   function onMessage(m, _s, reply) {
     if (m.type === "viewport") reply({ w: innerWidth, h: innerHeight, dpr: devicePixelRatio });
+    else if (m.type === "nudge") nudge().then(() => reply(true));
     else if (m.type === "overlay:select") {
       presetHeight = Number(m.presetHeight) || 1080;
       selectBox();
@@ -150,13 +153,34 @@ function main() {
     });
   }
 
+  // ------------------------------------------------------------ first frame on a still page
+  // Tab capture only sends a frame when something repaints. A 1-pixel, almost transparent dot shown for
+  // two frames makes the page repaint once, invisibly, so a still page is recorded from the first second.
+  async function nudge() {
+    const dot = h("div", { class: "nudge" });
+    root.append(dot);
+    const frames = (async () => {
+      for (let i = 0; i < 3; i++) await new Promise((r) => requestAnimationFrame(r));
+    })();
+    await Promise.race([frames, new Promise((r) => setTimeout(r, 300))]); // a hidden tab draws no frames
+    dot.remove();
+  }
+
   // ------------------------------------------------------------ click highlights
   function onClick(e) {
     if (!clicksOn || !e.isTrusted || e.button !== 0 || host.contains(e.target)) return;
     const r = h("div", { class: "ripple" });
     Object.assign(r.style, { left: `${e.clientX}px`, top: `${e.clientY}px` });
     root.append(r);
-    r.animate([{ transform: "translate(-50%,-50%) scale(.3)", opacity: 0.9 }, { transform: "translate(-50%,-50%) scale(1)", opacity: 0 }], { duration: 550, easing: "ease-out" }).finished.then(() => r.remove());
+    // Full strength for most of its life, so it shows up in the video (30 frames a second), then fades.
+    r.animate(
+      [
+        { transform: "translate(-50%,-50%) scale(.4)", opacity: 1 },
+        { transform: "translate(-50%,-50%) scale(1)", opacity: 1, offset: 0.65 },
+        { transform: "translate(-50%,-50%) scale(1.1)", opacity: 0 },
+      ],
+      { duration: 900, easing: "ease-out" },
+    ).finished.then(() => r.remove());
   }
   addEventListener("pointerdown", onClick, true);
 
@@ -229,7 +253,7 @@ function main() {
   function showCard() {
     const last = state.last;
     const pro = (name, label, act, title) => h("button", { class: "chip", "data-act": act, title, disabled: !!state.job || state.phase !== "done" || state.unsaved }, icon(name, { size: 16 }), h("span", { text: label }));
-    const title = state.phase === "saving" ? "Saving…" : state.phase === "error" ? "Something went wrong" : "Saved to Downloads";
+    const title = state.phase === "saving" ? "Saving…" : state.phase === "error" ? "Something went wrong" : state.unsaved ? "Not saved yet" : "Saved to Downloads";
     const head = h(
       "div",
       { class: "card-head" },
@@ -252,18 +276,20 @@ function main() {
             show,
             jobs ? pro("link", "Share", "share", "Upload to your Google Drive and copy a link anyone can watch") : null,
             jobs ? pro("scissors", "Trim", "trim", "Cut the start and end") : null,
-            jobs ? pro("gif", "GIF", "gif", "Save the first 30 seconds as a GIF") : null,
+            jobs ? pro("gif", "GIF", "gif", "A GIF of the first 30 seconds") : null,
           )
         : null;
-    const job = state.job ? h("div", { class: "job" }, jobBar(state.job.fraction), h("span", { text: state.job.kind === "share" ? "Uploading to your Google Drive…" : state.job.kind === "gif" ? "Making the GIF…" : "Trimming…" })) : null;
+    const job = state.job ? h("div", { class: "job" }, jobBar(state.job.fraction), h("span", { text: state.job.kind === "share" ? (state.job.stage === "signin" ? "Waiting for Google sign-in…" : "Uploading to your Google Drive…") : state.job.kind === "gif" ? "Making the GIF…" : "Trimming…" })) : null;
     const toast = state.toast ? h("div", { class: "toast", role: "status", text: state.toast }) : null;
     const link = state.link ? h("div", { class: "linkrow" }, h("input", { class: "link", readonly: true, value: state.link, "aria-label": "Share link" }), h("button", { class: "chip", "data-act": "copy", "aria-label": "Copy link" }, icon("copy", { size: 16 }), h("span", { text: "Copy" }))) : null;
     const note = state.note ? h("p", { class: "note", text: state.note }) : null;
+    const gifHint = jobs && state.phase === "done" && last && last.durationMs > 30_000 ? h("p", { class: "note", text: "GIF keeps the first 30 seconds." }) : null;
     const hadFocus = card && card.contains(root.activeElement);
     card?.remove();
-    card = h("div", { class: "card", role: "dialog", "aria-label": title, tabindex: "-1" }, head, meta, actions, job, link, toast, note);
+    card = h("div", { class: "card", role: "dialog", "aria-label": title, tabindex: "-1" }, head, meta, actions, gifHint, job, link, toast, note);
     card.addEventListener("click", (e) => {
       if (!e.isTrusted) return; // the page can't press our buttons
+      if (!chrome.runtime || !chrome.runtime.id) return host.remove(); // the extension was reloaded: this card is orphaned
       const b = e.target.closest("[data-act]");
       if (!b || b.disabled) return;
       const act = b.dataset.act;
@@ -348,7 +374,8 @@ function main() {
     frame = null;
     camera?.remove();
     camera = null;
-    if (["saving", "done", "error"].includes(state.phase)) showCard();
+    // While a whole-page recording is still being saved, the page is still being filmed: no card yet.
+    if (["done", "error"].includes(state.phase) || (state.phase === "saving" && state.mode !== "tab")) showCard();
     else clearUi();
   }
 
@@ -442,7 +469,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .count { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 152px; height: 152px; border-radius: 50%; display: grid; place-items: center; background: rgba(17, 17, 20, 0.72); color: #fff; pointer-events: none; }
 .count-num { font: 700 76px/1 var(--font); font-variant-numeric: tabular-nums; }
 
-.ripple { position: fixed; width: 44px; height: 44px; border-radius: 50%; border: 3px solid var(--accent); background: rgba(214, 54, 60, 0.18); pointer-events: none; transform: translate(-50%, -50%); }
+.nudge { position: fixed; right: 0; bottom: 0; width: 1px; height: 1px; background: rgba(0, 0, 0, 0.01); pointer-events: none; }
+.ripple { position: fixed; width: 56px; height: 56px; border-radius: 50%; border: 4px solid var(--accent); background: rgba(214, 54, 60, 0.28); box-shadow: 0 0 0 2px #fff, 0 2px 10px rgba(0, 0, 0, 0.35); pointer-events: none; transform: translate(-50%, -50%); }
 
 .cam { position: fixed; width: 168px; height: 168px; border-radius: 50%; overflow: hidden; box-shadow: var(--shadow-lg); background: #000; }
 .cam-frame { width: 100%; height: 100%; border: 0; display: block; }
