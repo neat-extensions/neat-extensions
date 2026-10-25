@@ -6,7 +6,7 @@ import app from "../app.config.js";
 import { verifyLicence } from "../../../packages/engine/src/licence.js";
 import { captureSize, MIN_BOX } from "./lib/crop.js";
 import { presetById } from "./lib/presets.js";
-import { normaliseSettings, fileName, licencePublicKey, isBrowserPage } from "./lib/format.js";
+import { normaliseSettings, fileName, licencePublicKey, isBrowserPage, trimmedName } from "./lib/format.js";
 import { shouldShowLimitNote, dayKey } from "./lib/limiter.js";
 
 const LICENCE_KEY = licencePublicKey(app);
@@ -26,7 +26,7 @@ const SAY = {
   page: "This page can't be recorded. Open a normal web page, or pick Window or Screen.",
   boxPage: "Draw a box works on normal web pages. Open one, or pick Window or Screen.",
   busy: "This page is already being recorded or shared. Stop that first.",
-  noSystemSound: "No computer sound: next time, turn on the share window's system-audio switch (“Share system audio”).",
+  noSystemSound: "No computer sound: next time, turn on the system-audio switch in the share window.",
   held: "Your browser is still holding this page after the last try. Close this tab and open the page again, or pick Screen.",
   denied: "Your browser didn't allow the recording. Press Record and choose Share or Allow.",
   start: "The recording couldn't start. Try again.",
@@ -91,6 +91,15 @@ async function toOffscreen(type, data = {}) {
   const r = await chrome.runtime.sendMessage({ target: "offscreen", type, ...data });
   if (!r || !r.ok) throw Object.assign(new Error((r && r.error) || "recorder did not answer"), { quiet: r && r.quiet, kind: r && r.kind });
   return r.value;
+}
+
+async function fileExists(name) {
+  try {
+    await (await navigator.storage.getDirectory()).getFileHandle(name);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** Delete recorder files (all, or all but `keep`) without waking the recorder. */
@@ -337,7 +346,12 @@ async function onDownload(d) {
   const p = st.pendingDownload;
   if (!p || p.id !== d.id || !d.state) return;
   if (d.state.current === "complete") {
-    const last = p.then === "gif" ? st.last : { ...st.last, downloadId: d.id };
+    // The browser may have renamed it on a clash ("… (1).mp4"): show and reuse the name it really has.
+    const [item] = await chrome.downloads.search({ id: d.id }).catch(() => []);
+    const onDisk = item && item.filename ? item.filename.split(/[\\/]/).pop() : "";
+    const stem = p.filename.replace(/\.[^.]+$/, "");
+    const real = onDisk.startsWith(stem) ? onDisk : p.filename; // only our name, maybe with the browser's " (1)"
+    const last = p.then === "gif" ? st.last : { ...st.last, downloadId: d.id, filename: real };
     await badge(st.injected ? null : "saved");
     const gif = st.last && st.last.durationMs > 30_000 ? "GIF of the first 30 seconds saved to Downloads" : "GIF saved to Downloads";
     const toast = p.then === "trim" ? "Trimmed copy saved to Downloads" : p.then === "gif" ? gif : st.toast;
@@ -357,8 +371,9 @@ chrome.downloads.onChanged.addListener((d) => serial(() => onDownload(d)));
 async function afterJob() {
   const st = await getState();
   const keep = st.pro && st.last ? st.last.opfsName : null;
-  // Remembered across restarts (session state is not), so recovery never saves an already-saved file again.
-  await chrome.storage.local.set({ keptFile: keep });
+  // Remembered across restarts (session state is not), so recovery never saves an already-saved file again,
+  // and an extension update can bring the last recording back.
+  await chrome.storage.local.set({ keptFile: keep, keptLast: keep ? { last: st.last, stamp: st.stamp } : null });
   if (await chrome.offscreen.hasDocument()) {
     await toOffscreen("job:release", { keep }).catch(() => {});
     await closeOffscreen();
@@ -376,10 +391,14 @@ async function clearDone(st) {
 
 /** After a crash, an update or a browser restart: a recording left on disk is repaired and saved.
  *  The file kept for Pro jobs was saved already: it stays while its card is open, else it is deleted. */
-async function recoverLeftovers() {
-  const st = await getState();
+async function recoverLeftovers({ keepLast = false } = {}) {
+  let st = await getState();
   if (!["idle", "done", "error"].includes(st.phase)) return;
-  const { keptFile = null } = await chrome.storage.local.get("keptFile");
+  const { keptFile = null, keptLast = null } = await chrome.storage.local.get(["keptFile", "keptLast"]);
+  // After an update the session state is gone but the kept Pro file isn't: bring back "Last recording".
+  if (keepLast && st.phase === "idle" && keptFile && keptLast && keptLast.last && keptLast.last.opfsName === keptFile && (await fileExists(keptFile))) {
+    st = await setState({ phase: "done", stamp: keptLast.stamp, pro: await isPro(), injected: false, tabId: null, doneSeen: true, last: keptLast.last, note: null, toast: null, job: null, link: null }, { replace: true });
+  }
   const live = st.phase === "done" && st.last ? st.last.opfsName : null;
   let found = false;
   try {
@@ -447,11 +466,11 @@ async function job(kind, m, st) {
 async function finishJob(kind, m, st, r) {
   await setState({ job: { ...(await getState()).job, answered: true } });
   if (kind === "trim") {
-    const filename = st.last.filename.replace(/( (trimmed))?.(mp4|webm)$/, ` (trimmed).${st.last.ext}`);
+    const filename = trimmedName(st.last.filename, st.last.ext, (st.last.trims || []).length + 1);
     await setState({ last: { ...st.last, trims: [...(st.last.trims || []), { startMs: m.startMs, endMs: m.endMs }], size: r.size, durationMs: r.durationMs, filename } });
     await download(r.url, filename, "trim");
   } else if (kind === "gif") {
-    await download(r.url, st.last.filename.replace(/.(mp4|webm)$/, ".gif"), "gif");
+    await download(r.url, st.last.filename.replace(/\.(mp4|webm)$/, ".gif"), "gif");
   } else if (kind === "share") {
     // Copied by the page the user pressed Share on (no clipboard permission needed); the panel and the card have Copy too.
     const now = await getState();
@@ -525,13 +544,19 @@ const handlers = {
     const st = await getState();
     if (st.phase !== "recording" || st.paused || !(await isPro())) return;
     await toOffscreen("rec:pause");
-    await setState({ paused: true, bankedMs: st.bankedMs + (Date.now() - st.startedAt), startedAt: null });
+    await setState({ paused: true, bankedMs: st.bankedMs + (st.startedAt ? Date.now() - st.startedAt : 0), startedAt: null });
   },
   resume: async () => {
     const st = await getState();
     if (st.phase !== "recording" || !st.paused) return;
+    if (st.held) return setState({ paused: false }); // it carries on when the panel closes
     await toOffscreen("rec:resume");
     await setState({ paused: false, startedAt: Date.now() });
+  },
+  // The drawn box fills the page: there is no Stop bar; the panel says how to stop.
+  "bar:none": async (_m, sender) => {
+    const st = await getState();
+    if (st.phase === "recording" && sender.tab && sender.tab.id === st.tabId) await setState({ barless: true });
   },
   "box:chosen": async (m, sender) => {
     const st = await getState();
@@ -637,7 +662,7 @@ const handlers = {
 
 // Who may send what. Pages' content scripts run next to untrusted page code, so they get
 // only the buttons a user can press; the recorder's messages must come from the recorder.
-const FROM_PAGE = new Set(["box:chosen", "box:cancel", "page:gone", "viewport", "stop", "pause", "resume", "dismiss", "show", "save-again", "open-pro", "trim", "gif", "share", "state"]);
+const FROM_PAGE = new Set(["box:chosen", "box:cancel", "bar:none", "page:gone", "viewport", "stop", "pause", "resume", "dismiss", "show", "save-again", "open-pro", "trim", "gif", "share", "state"]);
 const FROM_RECORDER = new Set(["drive:token", "drive:folder", "drive:drop-token", "rec:stopping", "rec:saved", "rec:error", "job:progress", "job:finished"]);
 // Answered straight away, outside the queue: they never change the recording flow.
 const UNQUEUED = new Set(["state", "drive:token", "drive:drop-token", "drive:folder", "job:progress"]);
@@ -684,7 +709,29 @@ chrome.runtime.onStartup.addListener(() =>
     await recoverLeftovers();
   }),
 );
-chrome.runtime.onInstalled.addListener(() => serial(() => recoverLeftovers()));
+// An update or reload keeps the last recording reachable ("Last recording"); a browser restart doesn't (privacy page).
+chrome.runtime.onInstalled.addListener((d) => serial(() => recoverLeftovers({ keepLast: d.reason === "update" })));
+
+// The panel open during a Screen or Window recording would be in the video: hold the recording while it is open.
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== "panel" || !port.sender || port.sender.id !== chrome.runtime.id) return;
+  serial(async () => {
+    const st = await getState();
+    if (st.phase !== "recording" || !["screen", "window"].includes(st.mode) || st.paused || st.held) return;
+    await toOffscreen("rec:pause").catch(() => {});
+    await setState({ held: true, bankedMs: st.bankedMs + (st.startedAt ? Date.now() - st.startedAt : 0), startedAt: null });
+  });
+  port.onDisconnect.addListener(() =>
+    serial(async () => {
+      const st = await getState();
+      if (!st.held) return;
+      if (st.phase === "recording" && !st.paused) {
+        await toOffscreen("rec:resume").catch(() => {});
+        await setState({ held: false, startedAt: Date.now() });
+      } else await setState({ held: false });
+    }),
+  );
+});
 // Updates wait until nothing is being recorded.
 chrome.runtime.onUpdateAvailable.addListener(() =>
   serial(async () => {

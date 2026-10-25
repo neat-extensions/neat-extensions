@@ -32,6 +32,12 @@ export function fileName(product, d, ext, suffix = "") {
   return `${product} ${date} at ${time}${suffix}.${ext}`.replace(/[\\/:*?"<>|]/g, "-");
 }
 
+/** "X.mp4" → "X (trimmed).mp4", then "X (trimmed 2).mp4"…: never "(trimmed) (trimmed)", never a name clash. */
+export function trimmedName(filename, ext, n = 1) {
+  const base = filename.replace(/( \(trimmed( \d+)?\))*( \(\d+\))?\.(mp4|webm)$/, "");
+  return `${base} (trimmed${n > 1 ? ` ${n}` : ""}).${ext}`;
+}
+
 // In the order people see them. "tab" is shown as "This page".
 export const MODES = ["box", "screen", "window", "tab"];
 

@@ -153,7 +153,7 @@ test("screen with Sound on: either the computer's sound is in the file, or the c
     const hasSound = info.tracks.includes("soun");
     console.log("  screen sound:", hasSound ? "in the file" : "missing", "| toast:", st.toast);
     if (hasSound) expect(st.toast || "").not.toMatch(/Share system audio/);
-    else expect(st.toast).toBe("No computer sound: next time, turn on the share window's system-audio switch (“Share system audio”).");
+    else expect(st.toast).toBe("No computer sound: next time, turn on the system-audio switch in the share window.");
   } finally {
     await ctx.close();
   }

@@ -1,4 +1,4 @@
-# Chrome Web Store submission checklist — Neat Record 1.0.1
+# Chrome Web Store submission checklist — Neat Record 1.0.2
 
 **The draft item exists (created through the API). Owner steps: `store/RECORD-OWNER-STEPS.md`.**
 Dashboard: https://chrome.google.com/webstore/devconsole, signed in as
@@ -10,7 +10,7 @@ review" until every tab is checked.
 ## 0. Before uploading
 
 - [ ] `apps/record/app.config.js` has the real `oauthClientId` and `buyUrl` (not placeholders).
-- [ ] `npm run build -- record --release` passes (it refuses placeholders) and wrote `dist\neat-record-1.0.1.zip`.
+- [ ] `npm run build -- record --release` passes (it refuses placeholders) and wrote `dist\neat-record-1.0.2.zip`.
 - [ ] `npm run store -- record` regenerated `store/record/` and `docs/record/`; pushed, so the privacy page is live.
 - [ ] https://neatextensions.com/record/privacy.html opens.
 
@@ -18,7 +18,7 @@ review" until every tab is checked.
 
 | Step | Value |
 |---|---|
-| Upload | the draft item already exists: open it → **Package** → upload `dist\neat-record-1.0.1.zip` (only a `--release` build has this name) |
+| Upload | the draft item already exists: open it → **Package** → upload `dist\neat-record-1.0.2.zip` (only a `--release` build has this name) |
 | Check | Name `Neat Record — Screen Recorder, Draw a Box`; permissions activeTab, downloads, identity, offscreen, scripting, storage, tabCapture; **no** site access. Anything else: stop. |
 | Check | The item ID equals `extensionId` in `apps/record/app.config.js` (set from the store after the draft upload). If not: stop. |
 

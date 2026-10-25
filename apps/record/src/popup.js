@@ -223,6 +223,10 @@ function paintLive() {
       ? "Or press Esc on the page."
       : state.micBlocked && state.phase === "recording"
         ? "Recording without the microphone (it's blocked)."
+        : state.barless && state.phase === "recording"
+          ? "Your box fills the page, so there's no bar on it: stop here."
+        : state.held && state.phase === "recording"
+          ? "Paused while this panel is open, so the panel isn't in your video."
         : state.soundMissing && state.phase === "recording"
           ? "No computer sound: the share window's system-audio switch was off."
         : state.limitMs && state.phase === "recording"
@@ -323,4 +327,7 @@ function paint() {
     }
     if (area === "sync" && c.licence) location.reload();
   });
+  // Screen and Window recordings hold while this panel is open (it would be in the video). Connected last,
+  // so the panel hears the "held" change it causes.
+  chrome.runtime.connect({ name: "panel" });
 })();

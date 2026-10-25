@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 import { normaliseDrag, cropRect, captureSize, contentRect, fitHeight } from "../../apps/record/src/lib/crop.js";
 import { createLimiter, shouldShowLimitNote, dayKey } from "../../apps/record/src/lib/limiter.js";
 import { PRESETS, presetById, sizeLabel, videoBitrate, DEFAULT_PRESET } from "../../apps/record/src/lib/presets.js";
-import { normaliseSettings, fileName, pickFormat, avcLevel, clock, isBrowserPage } from "../../apps/record/src/lib/format.js";
+import { normaliseSettings, fileName, pickFormat, avcLevel, clock, isBrowserPage, trimmedName } from "../../apps/record/src/lib/format.js";
 import { extensionIdFromKey } from "../../scripts/extension-key.mjs";
 import app from "../../apps/record/app.config.js";
 
@@ -231,4 +231,15 @@ test.describe("screen size for each quality (fitHeight)", () => {
 test("This page refuses the browser's own pages, and only those", () => {
   for (const u of ["edge://version", "chrome://settings", "about:blank", "brave://rewards", "chrome-extension://abc/popup.html", "view-source:https://a.com"]) expect(isBrowserPage(u), u).toBe(true);
   for (const u of ["https://example.com", "http://127.0.0.1:8080/x", "https://chromewebstore.google.com/detail/x", "file:///C:/a.html", "", undefined]) expect(isBrowserPage(u), String(u)).toBe(false);
+});
+
+test("trimming again never stacks '(trimmed)' and never clashes with the first trim", () => {
+  const a = "Neat Record 2026-10-25 at 04.40.17.mp4";
+  const once = trimmedName(a, "mp4");
+  expect(once).toBe("Neat Record 2026-10-25 at 04.40.17 (trimmed).mp4");
+  expect(trimmedName(once, "mp4")).toBe(once);
+  expect(trimmedName("Neat Record 2026-10-25 at 04.40.17 (trimmed) (trimmed).webm", "webm")).toBe("Neat Record 2026-10-25 at 04.40.17 (trimmed).webm");
+  // A second trim gets its own name, so the browser never has to rename it to "… (1)".
+  expect(trimmedName(once, "mp4", 2)).toBe("Neat Record 2026-10-25 at 04.40.17 (trimmed 2).mp4");
+  expect(trimmedName("Neat Record 2026-10-25 at 04.40.17 (trimmed 2) (1).mp4", "mp4", 3)).toBe("Neat Record 2026-10-25 at 04.40.17 (trimmed 3).mp4");
 });

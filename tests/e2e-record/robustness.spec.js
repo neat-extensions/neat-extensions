@@ -257,7 +257,7 @@ test("closing the recorded tab saves the recording and says just that", async ()
   }
 });
 
-test("after the extension is reloaded, a Saved card left by the old copy goes away when touched, and never stacks", async () => {
+test("after the extension is reloaded, a Saved card left by the old copy explains itself when touched, and never stacks", async () => {
   const { ctx, sw, page, tabId } = await setup();
   try {
     await call(sw, "start", { tabId });
@@ -269,9 +269,9 @@ test("after the extension is reloaded, a Saved card left by the old copy goes aw
     await expect(ui.locator(".card")).toBeVisible();
     await sw.evaluate(() => chrome.runtime.reload());
     const sw2 = await ctx.waitForEvent("serviceworker", { timeout: 20_000 });
-    // The old card can't reach the new copy: pressing it removes it instead of doing nothing.
+    // The old card can't reach the new copy: pressing it says what happened instead of doing nothing.
     await ui.locator('[data-act="show"]').click();
-    await expect(ui).toHaveCount(0);
+    await expect(ui.locator(".orphan")).toBeVisible();
     // A new recording on the same page: one page UI, not two stacked.
     await setSettings(sw2, { mode: "tab", sound: false, mic: false });
     const t2 = await tabIdOf(sw2, server.base);

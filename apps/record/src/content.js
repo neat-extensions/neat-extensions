@@ -27,6 +27,7 @@ function main() {
 
   let state = { phase: "idle" };
   let bar = null;
+  let barless = false; // the box leaves no room for the bar outside it: stop from the panel instead
   let card = null;
   let frame = null;
   let camera = null;
@@ -141,8 +142,12 @@ function main() {
       const step = () => {
         if (i === 0 || !c.isConnected) {
           c.remove();
-          // Two frames so 3-2-1 is gone before recording; a hidden tab has no frames, so don't wait for them.
-          Promise.race([new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))), new Promise((r) => setTimeout(r, 120))]).then(resolve);
+          // Two frames so 3-2-1 is gone, one invisible repaint so the capture sends that clean page, then a
+          // moment for it to reach the recorder (a hidden tab has no frames, so don't wait for them).
+          Promise.race([new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))), new Promise((r) => setTimeout(r, 120))])
+            .then(nudge)
+            .then(() => new Promise((r) => setTimeout(r, 200)))
+            .then(resolve);
           return;
         }
         n.textContent = String(i--);
@@ -151,6 +156,17 @@ function main() {
       };
       step();
     });
+  }
+
+  // ------------------------------------------------------------ a card left from before an update
+  /** This copy can't reach the extension any more: one line saying where things are, then gone. */
+  function orphaned() {
+    card?.remove();
+    const note = h("div", { class: "card orphan", role: "status", text: "Neat Record was updated. Your video is in Downloads — click the Neat Record icon for your last recording." });
+    root.append(note);
+    const r = note.getBoundingClientRect();
+    place(note, innerWidth - r.width - 16, innerHeight - r.height - 16);
+    setTimeout(() => host.remove(), 8000);
   }
 
   // ------------------------------------------------------------ first frame on a still page
@@ -205,7 +221,7 @@ function main() {
 
   // ------------------------------------------------------------ floating bar
   function showBar() {
-    if (bar) return bar;
+    if (bar || barless) return bar;
     const time = h("span", { class: "time", role: "timer", "aria-label": "Recording time", text: "0:00" });
     const pause = state.pro ? h("button", { class: "bar-btn", "data-act": "pause", "aria-label": "Pause", title: "Pause" }, icon("pause", { size: 18 })) : null;
     const stop = h("button", { class: "bar-btn stop", "data-act": "stop", "aria-label": "Stop and save", title: "Stop and save" }, icon("stop", { size: 18 }), h("span", { text: "Stop" }));
@@ -217,9 +233,28 @@ function main() {
     root.append(bar);
     const r = bar.getBoundingClientRect();
     const pos = barPosition(state.box, r.width || 210, r.height || 48);
+    if (!pos) return noBar();
     place(bar, pos.x, pos.y);
-    draggable(bar, grip);
+    // It can be moved, but never onto the box (it would be in the video).
+    draggable(bar, grip, (x, y) => !overlapsBox(x, y, bar.offsetWidth, bar.offsetHeight));
     return bar;
+  }
+
+  /** No room outside the box: no bar on the page at all; the panel's Stop stops it (it is not in a box video). */
+  function noBar() {
+    bar?.remove();
+    bar = null;
+    barless = true;
+    send({ type: "bar:none" });
+    return null;
+  }
+
+  /** True when a w×h rectangle at x,y would touch the recorded box (with the same 12-px gap the bar keeps). */
+  function overlapsBox(x, y, w, hgt) {
+    const b = state.box;
+    if (!b) return false;
+    const g = 12;
+    return x < b.x + b.w + g && x + w > b.x - g && y < b.y + b.h + g && y + hgt > b.y - g;
   }
 
   /** Bottom-left by default; with a box, just below or above it, never on top of it. */
@@ -231,7 +266,7 @@ function main() {
     if (box.y - 12 - hgt >= m) return { x, y: box.y - 12 - hgt };
     if (box.x + box.w + 12 + w + m <= innerWidth) return { x: box.x + box.w + 12, y: Math.max(m, box.y) };
     if (box.x - 12 - w >= m) return { x: box.x - 12 - w, y: Math.max(m, box.y) };
-    return { x: m, y: innerHeight - hgt - m }; // the box fills the page: the bar has to sit somewhere
+    return null; // the box fills the page: there is nowhere outside it
   }
 
   function updateTimer() {
@@ -289,7 +324,7 @@ function main() {
     card = h("div", { class: "card", role: "dialog", "aria-label": title, tabindex: "-1" }, head, meta, actions, gifHint, job, link, toast, note);
     card.addEventListener("click", (e) => {
       if (!e.isTrusted) return; // the page can't press our buttons
-      if (!chrome.runtime || !chrome.runtime.id) return host.remove(); // the extension was reloaded: this card is orphaned
+      if (!chrome.runtime || !chrome.runtime.id) return orphaned(); // the extension was updated or reloaded
       const b = e.target.closest("[data-act]");
       if (!b || b.disabled) return;
       const act = b.dataset.act;
@@ -384,6 +419,7 @@ function main() {
     clearTimeout(tick);
     for (const n of [bar, card, frame, camera, count]) n?.remove();
     bar = card = frame = camera = count = null;
+    barless = false;
     clicksOn = false;
   }
 
@@ -410,7 +446,8 @@ function main() {
       if (bar) {
         const r = bar.getBoundingClientRect();
         const pos = barPosition(state.box, r.width, r.height);
-        place(bar, pos.x, pos.y);
+        if (pos) place(bar, pos.x, pos.y);
+        else noBar();
       }
     }, 150);
   }
@@ -420,14 +457,14 @@ function main() {
     n.style.left = `${Math.round(Math.max(8, Math.min(x, innerWidth - 8 - (n.offsetWidth || 0))))}px`;
     n.style.top = `${Math.round(Math.max(8, Math.min(y, innerHeight - 8 - (n.offsetHeight || 0))))}px`;
   }
-  function draggable(n, handle) {
+  function draggable(n, handle, allowed = () => true) {
     let from = null;
     handle.addEventListener("pointerdown", (e) => {
       e.preventDefault();
       handle.setPointerCapture(e.pointerId);
       from = { x: e.clientX - n.offsetLeft, y: e.clientY - n.offsetTop };
     });
-    handle.addEventListener("pointermove", (e) => from && place(n, e.clientX - from.x, e.clientY - from.y));
+    handle.addEventListener("pointermove", (e) => from && allowed(e.clientX - from.x, e.clientY - from.y) && place(n, e.clientX - from.x, e.clientY - from.y));
     handle.addEventListener("pointerup", () => (from = null));
   }
 
@@ -453,7 +490,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 .frame { position: fixed; pointer-events: none; border: 2px dashed var(--accent); border-radius: 4px; }
 
-.bar { position: fixed; display: flex; align-items: center; gap: 4px; height: 48px; padding: 0 6px 0 4px; border-radius: 999px; background: var(--surface); color: var(--text); box-shadow: var(--shadow-lg); border: 1px solid var(--border); user-select: none; }
+.bar { position: fixed; display: flex; align-items: center; gap: 4px; height: 48px; padding: 0 6px 0 4px; border-radius: 999px; background: var(--surface); color: var(--text); box-shadow: none; border: 1px solid var(--muted); user-select: none; }
 .grip { display: grid; place-items: center; width: 24px; height: 40px; color: var(--muted); cursor: grab; touch-action: none; }
 .grip:active { cursor: grabbing; }
 .rec-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); margin: 0 4px 0 2px; animation: pulse 1.6s ease-in-out infinite; }
@@ -469,6 +506,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .count { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 152px; height: 152px; border-radius: 50%; display: grid; place-items: center; background: rgba(17, 17, 20, 0.72); color: #fff; pointer-events: none; }
 .count-num { font: 700 76px/1 var(--font); font-variant-numeric: tabular-nums; }
 
+.card.orphan { max-width: 360px; font-size: 13px; padding: 12px 16px; }
 .nudge { position: fixed; right: 0; bottom: 0; width: 1px; height: 1px; background: rgba(0, 0, 0, 0.01); pointer-events: none; }
 .ripple { position: fixed; width: 56px; height: 56px; border-radius: 50%; border: 4px solid var(--accent); background: rgba(214, 54, 60, 0.28); box-shadow: 0 0 0 2px #fff, 0 2px 10px rgba(0, 0, 0, 0.35); pointer-events: none; transform: translate(-50%, -50%); }
 

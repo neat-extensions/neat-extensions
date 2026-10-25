@@ -9,7 +9,7 @@ export default {
   id: "record",
   name: "Record",
   productName: `${BRAND} Record`,
-  version: "1.0.1",
+  version: "1.0.2",
   // The public key the Chrome Web Store gave the item (fetchStatus, 2026-10-24; the store refuses a
   // manifest key on a new item, so .secrets/record-extension-key.pem is retired). It pins the same ID
   // in unpacked builds as in the store, which the Google OAuth client is bound to.
